@@ -1,0 +1,8 @@
+# runtime settings written next to the exe
+build/config.json
+
+# dev scratch
+*.pdb
+*.user
+*.suo
+.vs/

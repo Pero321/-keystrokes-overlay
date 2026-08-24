@@ -66,70 +66,87 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 		float spin = be.getSpin(tickDelta);
 		float heat = be.getHeatFraction();
 
-		VertexConsumer tower = vertexConsumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TOWER));
-		VertexConsumer rotorTop = vertexConsumers.getBuffer(
-				RenderLayer.getEntityCutoutNoCull(ROTOR_TOP));
-		VertexConsumer shaftBuf = vertexConsumers.getBuffer(
-				RenderLayer.getEntityCutoutNoCull(SHAFT));
-		VertexConsumer deck = vertexConsumers.getBuffer(
-				RenderLayer.getEntityCutoutNoCull(DECK));
-
 		matrices.push();
 		matrices.translate(0.5f, 0.0f, 0.5f);
 
-		// static armour: the collars and housing do not turn
-		cylinder(matrices, tower, COLLAR_R * PX, Y_BASE * PX, Y_BODY0 * PX,
-				V_LOWER0, V_LOWER1, light, overlay, 0xFFFFFFFF);
-		cylinder(matrices, tower, COLLAR_R * PX, Y_BODY1 * PX, Y_UPPER * PX,
-				V_UPPER0, V_UPPER1, light, overlay, 0xFFFFFFFF);
-		// deck over the collar, or you can see straight down inside the tower
-		disc(matrices, deck, COLLAR_R * PX, Y_UPPER * PX, light, overlay, 0xFFFFFFFF);
-		cylinder(matrices, tower, HOUSING_R * PX, Y_UPPER * PX, Y_HOUSING * PX,
-				V_UPPER0, V_UPPER1, light, overlay, 0xFFFFFFFF);
-		disc(matrices, rotorTop, HOUSING_R * PX, Y_HOUSING * PX, light, overlay, 0xFFFFFFFF);
+		// One layer at a time, and each buffer is fetched immediately before it is
+		// used. VertexConsumerProvider.Immediate keeps a single active layer:
+		// asking it for a different one calls draw() on the current buffer, which
+		// ends it. Holding several buffers at once and interleaving writes throws
+		// "Not building!" on the first write to a buffer that was already flushed.
 
-		// the rotor drum itself
-		matrices.push();
-		matrices.multiply(RotationAxis.POSITIVE_Y.rotation(spin));
-		cylinder(matrices, tower, BODY_R * PX, Y_BODY0 * PX, Y_BODY1 * PX,
-				V_BODY0, V_BODY1, light, overlay, 0xFFFFFFFF);
-		matrices.pop();
+		{   // steel: collars, housing, and the turning drum
+			VertexConsumer tower = vertexConsumers.getBuffer(
+					RenderLayer.getEntityCutoutNoCull(TOWER));
+			cylinder(matrices, tower, COLLAR_R * PX, Y_BASE * PX, Y_BODY0 * PX,
+					V_LOWER0, V_LOWER1, light, overlay, 0xFFFFFFFF);
+			cylinder(matrices, tower, COLLAR_R * PX, Y_BODY1 * PX, Y_UPPER * PX,
+					V_UPPER0, V_UPPER1, light, overlay, 0xFFFFFFFF);
+			cylinder(matrices, tower, HOUSING_R * PX, Y_UPPER * PX, Y_HOUSING * PX,
+					V_UPPER0, V_UPPER1, light, overlay, 0xFFFFFFFF);
 
-		// the drive shaft runs faster than the drum it is geared to
-		matrices.push();
-		matrices.multiply(RotationAxis.POSITIVE_Y.rotation(spin * 2.5f));
-		cylinder(matrices, shaftBuf, SHAFT_R * PX, Y_HOUSING * PX, Y_SHAFT * PX,
-				0.0f, 1.0f, light, overlay, 0xFFFFFFFF);
-		for (int i = 0; i < 3; i++) {
 			matrices.push();
-			matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(i * 120.0f));
-			matrices.translate(2.6f * PX, 0.0f, 0.0f);
-			cylinder(matrices, shaftBuf, 0.7f * PX, Y_HOUSING * PX, (Y_HOUSING + 0.9f) * PX,
-					0.0f, 1.0f, light, overlay, 0xFFFFFFFF);
+			matrices.multiply(RotationAxis.POSITIVE_Y.rotation(spin));
+			cylinder(matrices, tower, BODY_R * PX, Y_BODY0 * PX, Y_BODY1 * PX,
+					V_BODY0, V_BODY1, light, overlay, 0xFFFFFFFF);
 			matrices.pop();
 		}
-		matrices.pop();
 
-		// Emissive pass. Drawn at full lightmap so the windows glow in the dark
-		// instead of merely being green, which is what made the old model look
-		// dead. Brightness follows heat, with a slow pulse on top.
+		{   // deck over the collar, or you can see straight down inside the tower
+			VertexConsumer deck = vertexConsumers.getBuffer(
+					RenderLayer.getEntityCutoutNoCull(DECK));
+			disc(matrices, deck, COLLAR_R * PX, Y_UPPER * PX, light, overlay, 0xFFFFFFFF);
+		}
+
+		{   // rotor port on top of the housing
+			VertexConsumer rotorTop = vertexConsumers.getBuffer(
+					RenderLayer.getEntityCutoutNoCull(ROTOR_TOP));
+			disc(matrices, rotorTop, HOUSING_R * PX, Y_HOUSING * PX, light, overlay, 0xFFFFFFFF);
+		}
+
+		{   // the drive shaft runs faster than the drum it is geared to
+			VertexConsumer shaftBuf = vertexConsumers.getBuffer(
+					RenderLayer.getEntityCutoutNoCull(SHAFT));
+			matrices.push();
+			matrices.multiply(RotationAxis.POSITIVE_Y.rotation(spin * 2.5f));
+			cylinder(matrices, shaftBuf, SHAFT_R * PX, Y_HOUSING * PX, Y_SHAFT * PX,
+					0.0f, 1.0f, light, overlay, 0xFFFFFFFF);
+			for (int i = 0; i < 3; i++) {
+				matrices.push();
+				matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(i * 120.0f));
+				matrices.translate(2.6f * PX, 0.0f, 0.0f);
+				cylinder(matrices, shaftBuf, 0.7f * PX, Y_HOUSING * PX,
+						(Y_HOUSING + 0.9f) * PX, 0.0f, 1.0f, light, overlay, 0xFFFFFFFF);
+				matrices.pop();
+			}
+			matrices.pop();
+		}
+
+		// Emissive passes last, since they are translucent. Drawn at full lightmap
+		// so the windows glow in the dark instead of merely being green, which is
+		// what made the old model look dead. Brightness follows heat.
 		if (heat > 0.02f || lit) {
 			float pulse = 0.78f + 0.22f * MathHelper.sin(spin * 0.7f);
 			int alpha = (int) (MathHelper.clamp(heat, 0.0f, 1.0f) * pulse * 255.0f);
 			if (alpha > 4) {
 				int tint = (alpha << 24) | 0x00FFFFFF;
-				VertexConsumer glow = vertexConsumers.getBuffer(
-						RenderLayer.getEntityTranslucentEmissive(TOWER_GLOW));
-				matrices.push();
-				matrices.multiply(RotationAxis.POSITIVE_Y.rotation(spin));
-				cylinder(matrices, glow, GLOW_R * PX, Y_BODY0 * PX, Y_BODY1 * PX,
-						V_BODY0, V_BODY1, FULL_BRIGHT, overlay, tint);
-				matrices.pop();
 
-				VertexConsumer portGlow = vertexConsumers.getBuffer(
-						RenderLayer.getEntityTranslucentEmissive(ROTOR_TOP_GLOW));
-				disc(matrices, portGlow, HOUSING_R * PX, (Y_HOUSING + 0.02f) * PX,
-						FULL_BRIGHT, overlay, tint);
+				{
+					VertexConsumer glow = vertexConsumers.getBuffer(
+							RenderLayer.getEntityTranslucentEmissive(TOWER_GLOW));
+					matrices.push();
+					matrices.multiply(RotationAxis.POSITIVE_Y.rotation(spin));
+					cylinder(matrices, glow, GLOW_R * PX, Y_BODY0 * PX, Y_BODY1 * PX,
+							V_BODY0, V_BODY1, FULL_BRIGHT, overlay, tint);
+					matrices.pop();
+				}
+
+				{
+					VertexConsumer portGlow = vertexConsumers.getBuffer(
+							RenderLayer.getEntityTranslucentEmissive(ROTOR_TOP_GLOW));
+					disc(matrices, portGlow, HOUSING_R * PX, (Y_HOUSING + 0.02f) * PX,
+							FULL_BRIGHT, overlay, tint);
+				}
 			}
 		}
 

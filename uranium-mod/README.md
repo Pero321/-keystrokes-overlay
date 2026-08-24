@@ -198,7 +198,8 @@ Helper scripts alongside it:
 | `tools/preview_textures.py` | Contact sheet of the block and item textures |
 | `tools/preview_gui.py` | Mocks up the live centrifuge screen from the GUI sheet |
 | `tools/render_model.py` | Software-renders a block model to a PNG, so geometry can be checked without launching the game |
-| `tools/preview_centrifuge.py` | Renders the static model *plus* the renderer's generated cylinders, at a given spin and arm phase |
+| `tools/preview_centrifuge.py` | Renders the baked plinth *plus* the renderer's generated tower, at a given spin and heat |
+| `tools/check_render_buffers.py` | Catches stale `VertexConsumer` writes in block entity renderers |
 | `tools/gen_centrifuge_model.py` | Builds the centrifuge's multi-element model |
 | `tools/verify_worldgen.py` | Counts placed blocks in a generated world |
 
@@ -213,6 +214,13 @@ eyeballed without a client:
 python3 tools/render_model.py uraniummod:block/centrifuge out.png
 python3 tools/preview_centrifuge.py out.png --lit --spin 0.55 --phase 2.4
 ```
+
+`check_render_buffers.py` guards a crash the compiler cannot see.
+`VertexConsumerProvider.Immediate` keeps one active layer: asking it for a
+different one calls `draw()` on the current buffer, ending it. A consumer
+fetched earlier and written to afterwards throws `IllegalStateException: Not
+building!` and takes the game down with "Rendering Block Entity". The check
+enforces that every write targets the most recently fetched buffer.
 
 `validate_assets.py` also checks texture paths written as string literals in
 Java — the block entity renderer binds its textures that way, so a typo there

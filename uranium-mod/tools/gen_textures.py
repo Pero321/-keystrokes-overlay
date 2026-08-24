@@ -227,41 +227,83 @@ def outline_shape(px, col):
                 out[y][x] = col
     return out
 
-# A cast bar seen from just above the front: a lit top face over a shaded
-# front, rather than the flat lozenge vanilla uses.
-INGOT_TOP = [(3.9, 4.5), (14.3, 4.5), (13.3, 7.7), (2.9, 7.7)]
-INGOT_FRONT = [(2.9, 7.7), (13.3, 7.7), (12.5, 11.8), (3.7, 11.8)]
+# Classic ingot lozenge, tilted low-left to high-right, with mottled green
+# casting and bright highlight streaks along the top face.
+INGOT_ART = [
+    "................",
+    "................",
+    ".........xxx....",
+    "......xxxxxxxx..",
+    "....xxxxxxxxxxx.",
+    "...xxxxxxxxxxxx.",
+    "..xxxxxxxxxxxxx.",
+    ".xxxxxxxxxxxxx..",
+    ".xxxxxxxxxxxx...",
+    ".xxxxxxxxxxx....",
+    "..xxxxxxxxx.....",
+    "...xxxxxx.......",
+    "....xxx.........",
+    "................",
+    "................",
+    "................",
+]
+
+# pale and white glints, running with the long axis of the bar
+INGOT_PALE = [(3, 6), (4, 6), (5, 9), (6, 9), (9, 4), (10, 4), (11, 4),
+              (3, 8), (7, 8), (12, 5)]
+INGOT_WHITE = [(4, 7), (5, 7), (6, 6), (7, 6), (9, 5), (10, 5), (11, 5)]
+
+URA_PALE = (186, 226, 128, 255)
+URA_WHITE = (243, 255, 236, 255)
 
 def make_ingot(path, seed=6):
-    r = Rng(seed)
+    solid = lambda x, y: (0 <= x < N and 0 <= y < N and INGOT_ART[y][x] == "x")
+    nz = noise(seed + 5, passes=1)
+    grain = noise(seed + 91, passes=0)          # chunkier patches on top
     px = [[(0, 0, 0, 0) for _ in range(N)] for _ in range(N)]
+
     for y in range(N):
         for x in range(N):
-            if in_poly(x + 0.5, y + 0.5, INGOT_FRONT):
-                px[y][x] = q(sh(URA_M, int((r.f() - 0.5) * 10)))
-    for y in range(N):
+            if not solid(x, y):
+                continue
+            # lit from the upper left, roughened so the casting looks mottled
+            grad = 1.0 - ((x / 15.0) * 0.42 + (y / 15.0) * 0.58)
+            v = grad * 0.55 + nz[y][x] * 0.28 + grain[y][x] * 0.17
+            if v < 0.20:
+                c = mix(URA_O, URA_D, 0.55)
+            elif v < 0.32:
+                c = URA_D
+            elif v < 0.44:
+                c = mix(URA_D, URA_M, 0.6)
+            elif v < 0.55:
+                c = URA_M
+            elif v < 0.65:
+                c = mix(URA_M, URA_L, 0.6)
+            elif v < 0.76:
+                c = URA_L
+            elif v < 0.86:
+                c = mix(URA_L, URA_PALE, 0.5)
+            else:
+                c = URA_PALE
+            if not solid(x, y + 1) or not solid(x + 1, y):
+                c = mix(c, URA_D, 0.55)          # shaded underside
+            px[y][x] = q(c)
+
+    for (gx, gy) in INGOT_PALE:
+        if solid(gx, gy):
+            px[gy][gx] = q(URA_PALE)
+    for (gx, gy) in INGOT_WHITE:
+        if solid(gx, gy):
+            px[gy][gx] = URA_WHITE
+
+    for y in range(N):                            # dark rim
         for x in range(N):
-            if in_poly(x + 0.5, y + 0.5, INGOT_TOP):
-                px[y][x] = q(sh(URA_L, int((r.f() - 0.5) * 10)))
-    for y in range(N):
-        for x in range(N):
-            if in_poly(x + 0.5, y + 0.5, INGOT_TOP):
-                if not in_poly(x + 0.5, y - 1.0, INGOT_TOP):
-                    px[y][x] = q(mix(URA_B, URA_S, 0.6))       # lit top edge
-                elif not in_poly(x - 1.0, y + 0.5, INGOT_TOP):
-                    px[y][x] = q(URA_B)
-                elif not in_poly(x + 1.0, y + 0.5, INGOT_TOP):
-                    px[y][x] = q(mix(URA_L, URA_M, 0.5))
-            elif in_poly(x + 0.5, y + 0.5, INGOT_FRONT):
-                if not in_poly(x + 0.5, y - 1.0, INGOT_FRONT):
-                    px[y][x] = q(mix(URA_M, URA_L, 0.7))       # catch under the lip
-                elif not in_poly(x + 0.5, y + 1.0, INGOT_FRONT):
-                    px[y][x] = q(URA_D)
-                elif not in_poly(x + 1.0, y + 0.5, INGOT_FRONT):
-                    px[y][x] = q(mix(URA_M, URA_D, 0.65))
-                elif not in_poly(x - 1.0, y + 0.5, INGOT_FRONT):
-                    px[y][x] = q(mix(URA_M, URA_L, 0.35))
-    write_png(path, outline_shape(round_corners(px), URA_O))
+            if solid(x, y) or px[y][x][3]:
+                continue
+            if any(solid(x + dx, y + dy)
+                   for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                px[y][x] = URA_O
+    write_png(path, px)
 
 # ---------------------------------------------------------------- storage blocks
 CHUNKS = [(3.4, 3.2, 3.5), (11.2, 2.8, 3.2), (7.6, 9.4, 3.6),

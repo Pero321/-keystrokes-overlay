@@ -12,7 +12,7 @@
   "item.uraniummod.uranium_ingot": "Uranium Ingot",
   "block.uraniummod.centrifuge": "Centrifuge",
   "item.uraniummod.centrifuge": "Centrifuge",
-  "screen.uraniummod.centrifuge.heat": "Heat: %s%%",
+  "screen.uraniummod.centrifuge.heat": "Heat: %s / %s",
   "screen.uraniummod.centrifuge.ready": "Up to temperature",
   "screen.uraniummod.centrifuge.warming": "Needs redstone power and more heat"
 }

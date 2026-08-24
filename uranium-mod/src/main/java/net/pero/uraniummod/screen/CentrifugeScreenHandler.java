@@ -77,6 +77,11 @@ public class CentrifugeScreenHandler extends ScreenHandler {
 		return getHeat() >= propertyDelegate.get(CentrifugeBlockEntity.PROP_OPERATING_HEAT);
 	}
 
+	/** Current heat as a whole percentage of maximum, for the on-screen readout. */
+	public int getHeatPercent() {
+		return getHeat() * 100 / getMaxHeat();
+	}
+
 	/** Height in pixels of the filled part of the heat gauge. */
 	public int getHeatScaled(int pixels) {
 		return getHeat() * pixels / getMaxHeat();

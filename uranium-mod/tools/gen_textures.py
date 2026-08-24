@@ -484,8 +484,11 @@ P_HI    = (112, 109, 102, 255)
 P_LO    = (22, 21, 20, 255)
 SLOT_BG = (33, 32, 30, 255)
 
-HEAT_X, HEAT_Y, HEAT_W, HEAT_H = 25, 17, 12, 52
-ARROW_X, ARROW_Y, ARROW_W, ARROW_H = 79, 34, 24, 17
+# The gauge is shortened to leave room for the numeric readout the screen
+# draws underneath it. Keep these in step with CentrifugeScreen.
+HEAT_X, HEAT_Y, HEAT_W, HEAT_H = 25, 20, 12, 38
+ARROW_X, ARROW_Y, ARROW_W, ARROW_H = 86, 38, 16, 11
+SHAFT_LEN, SHAFT_TOP, SHAFT_BOT = 10, 3, 8
 THRESHOLD = 0.60          # keep in sync with OPERATING_HEAT / MAX_HEAT in Java
 
 def rect(px, x0, y0, x1, y1, c):
@@ -579,31 +582,24 @@ def make_gui(path):
             px[ty][x] = AMB_D
 
     # empty progress arrow, etched into the bay
-    def arrow_shape(ox, oy, col):
-        for i in range(3, 14):
-            for j in range(0, 16):
+    def draw_arrow(ox, oy, col):
+        mid = ARROW_H // 2
+        for i in range(SHAFT_TOP, SHAFT_BOT):               # shaft
+            for j in range(SHAFT_LEN):
                 px[oy + i][ox + j] = col
-        for i in range(ARROW_H):
-            w = 8 - abs(i - 8)
-            for j in range(16, min(ARROW_W, 16 + max(0, w))):
+        for i in range(ARROW_H):                            # head
+            w = (ARROW_W - SHAFT_LEN) - abs(i - mid)
+            for j in range(SHAFT_LEN, min(ARROW_W, SHAFT_LEN + max(0, w))):
                 px[oy + i][ox + j] = col
-    arrow_shape(ARROW_X, ARROW_Y, (28, 27, 26, 255))
+
+    draw_arrow(ARROW_X, ARROW_Y, (28, 27, 26, 255))
 
     # ---- overlay sprites sampled by the screen at draw time ----
-    filled = [[(0, 0, 0, 0) for _ in range(GW)] for _ in range(GH)]
-    def arrow_fill(ox, oy, col):
-        for i in range(3, 14):
-            for j in range(0, 16):
-                px[oy + i][ox + j] = col
-        for i in range(ARROW_H):
-            w = 8 - abs(i - 8)
-            for j in range(16, min(ARROW_W, 16 + max(0, w))):
-                px[oy + i][ox + j] = col
-    arrow_fill(176, 0, AMB_L)
+    draw_arrow(176, 0, AMB_L)
     for i in range(ARROW_H):                                # brighten the leading edge
-        w = 8 - abs(i - 8)
-        j = 15 + max(0, w)
-        if j < ARROW_W:
+        w = (ARROW_W - SHAFT_LEN) - abs(i - ARROW_H // 2)
+        j = SHAFT_LEN + max(0, w) - 1
+        if SHAFT_LEN <= j < ARROW_W:
             px[i][176 + j] = AMB_H
 
     for i in range(HEAT_H):

@@ -15,8 +15,9 @@ public class CentrifugeScreen extends HandledScreen<CentrifugeScreenHandler> {
 			Identifier.of(UraniumMod.MOD_ID, "textures/gui/centrifuge.png");
 
 	// must match the layout written by tools/gen_textures.py
-	private static final int HEAT_X = 25, HEAT_Y = 17, HEAT_W = 12, HEAT_H = 52;
-	private static final int ARROW_X = 79, ARROW_Y = 34, ARROW_W = 24, ARROW_H = 17;
+	private static final int HEAT_X = 25, HEAT_Y = 20, HEAT_W = 12, HEAT_H = 38;
+	private static final int HEAT_TEXT_Y = 61;
+	private static final int ARROW_X = 86, ARROW_Y = 38, ARROW_W = 16, ARROW_H = 11;
 	private static final int HEAT_U = 200, ARROW_U = 176;
 
 	public CentrifugeScreen(CentrifugeScreenHandler handler, PlayerInventory inventory, Text title) {
@@ -26,6 +27,8 @@ public class CentrifugeScreen extends HandledScreen<CentrifugeScreenHandler> {
 	// the console panel is dark, so the default near-black label colour is unreadable
 	private static final int TITLE_COLOUR = 0xF0E4CE;
 	private static final int LABEL_COLOUR = 0xB9B2A5;
+	private static final int HEAT_COLD_COLOUR = 0xC08A3C;
+	private static final int HEAT_READY_COLOUR = 0xFFD070;
 
 	@Override
 	protected void init() {
@@ -39,6 +42,14 @@ public class CentrifugeScreen extends HandledScreen<CentrifugeScreenHandler> {
 		context.drawText(textRenderer, title, titleX, titleY, TITLE_COLOUR, false);
 		context.drawText(textRenderer, playerInventoryTitle,
 				playerInventoryTitleX, playerInventoryTitleY, LABEL_COLOUR, false);
+
+		// numeric readout under the gauge, so the heat is legible without
+		// having to eyeball the bar against the threshold notch
+		String percent = handler.getHeatPercent() + "%";
+		int textWidth = textRenderer.getWidth(percent);
+		context.drawText(textRenderer, percent,
+				HEAT_X + HEAT_W / 2 - textWidth / 2, HEAT_TEXT_Y,
+				handler.isHotEnough() ? HEAT_READY_COLOUR : HEAT_COLD_COLOUR, false);
 	}
 
 	@Override
@@ -73,13 +84,13 @@ public class CentrifugeScreen extends HandledScreen<CentrifugeScreenHandler> {
 		int y = (height - backgroundHeight) / 2;
 		if (mouseX >= x + HEAT_X && mouseX < x + HEAT_X + HEAT_W
 				&& mouseY >= y + HEAT_Y && mouseY < y + HEAT_Y + HEAT_H) {
-			int percent = handler.getHeat() * 100 / Math.max(1, handler.getMaxHeat());
 			Text status = handler.isHotEnough()
 					? Text.translatable("screen.uraniummod.centrifuge.ready").formatted(Formatting.GREEN)
 					: Text.translatable("screen.uraniummod.centrifuge.warming").formatted(Formatting.GRAY);
 			context.drawTooltip(textRenderer,
 					java.util.List.of(
-							Text.translatable("screen.uraniummod.centrifuge.heat", percent),
+							Text.translatable("screen.uraniummod.centrifuge.heat",
+									handler.getHeat(), handler.getMaxHeat()),
 							status),
 					mouseX, mouseY);
 		}

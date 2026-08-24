@@ -90,8 +90,12 @@ temperature you're waiting for.
 *Left: cold, holding raw uranium, doing nothing. Right: up to temperature and
 refining.* The gauge is marked with tick marks, a dashed line at the operating
 temperature and an amber arrow pointing at it, so the target is visible rather
-than guessed. Hovering the gauge shows the exact percentage and whether it is
-hot enough yet.
+than guessed.
+
+The current heat is printed as a percentage under the gauge, and it changes
+colour once the machine is hot enough, so you can read the exact value instead
+of eyeballing the bar against the notch. Hovering the gauge shows the raw
+figure (`Heat: 740 / 1000`) and whether it is up to temperature.
 
 ### The block
 

@@ -37,12 +37,48 @@ def wr(p, px):
         + ch(b'IHDR', struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
         + ch(b'IDAT', zlib.compress(raw, 9)) + ch(b'IEND', b''))
 
+# Minimal 5x7 digit font, close enough to Minecraft's to judge the layout.
+GLYPHS = {
+    "0": [".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."],
+    "1": ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."],
+    "2": [".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"],
+    "3": ["####.", "....#", "....#", ".###.", "....#", "....#", "####."],
+    "4": ["#...#", "#...#", "#...#", "#####", "....#", "....#", "....#"],
+    "5": ["#####", "#....", "#....", "####.", "....#", "#...#", ".###."],
+    "6": [".###.", "#...#", "#....", "####.", "#...#", "#...#", ".###."],
+    "7": ["#####", "....#", "...#.", "..#..", ".#...", ".#...", ".#..."],
+    "8": [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."],
+    "9": [".###.", "#...#", "#...#", ".####", "....#", "#...#", ".###."],
+    "%": ["#...#", "#..#.", "...#.", "..#..", ".#...", ".#..#", "#...#"],
+}
+ADVANCE = 6
+
+def text_width(t):
+    return max(0, len(t) * ADVANCE - 1)
+
+def draw_text(px, t, tx, ty, col):
+    for k, chpos in enumerate(t):
+        g = GLYPHS.get(chpos)
+        if not g:
+            continue
+        for gy, row in enumerate(g):
+            for gx, c in enumerate(row):
+                if c == "#":
+                    yy, xx = ty + gy, tx + k * ADVANCE + gx
+                    if 0 <= yy < len(px) and 0 <= xx < len(px[0]):
+                        px[yy][xx] = col
+
 PW, PH = 176, 166
-HX, HY, HW, HH = 25, 17, 12, 52          # must match CentrifugeScreen
-AX, AY, AW, AH = 79, 34, 24, 17
+HX, HY, HW, HH = 25, 20, 12, 38          # must match CentrifugeScreen
+AX, AY, AW, AH = 86, 38, 16, 11
 g = rd(f"{RES}/textures/gui/centrifuge.png")
 raw_item = rd(f"{RES}/textures/item/raw_uranium.png")
 ingot = rd(f"{RES}/textures/item/uranium_ingot.png")
+
+HEAT_TEXT_Y = 61
+COLD_COL = (0xC0, 0x8A, 0x3C, 255)
+READY_COL = (0xFF, 0xD0, 0x70, 255)
+THRESHOLD = 0.60
 
 def shot(heat_frac, prog_frac, items):
     px = [[g[y][x] for x in range(PW)] for y in range(PH)]
@@ -61,6 +97,9 @@ def shot(heat_frac, prog_frac, items):
             for x in range(16):
                 c = spr[y][x]
                 if c[3]: px[sy + y][sx + x] = c
+    label = f"{int(round(heat_frac * 100))}%"
+    col = READY_COL if heat_frac >= THRESHOLD else COLD_COL
+    draw_text(px, label, HX + HW // 2 - text_width(label) // 2, HEAT_TEXT_Y, col)
     return px
 
 shots = [shot(0.28, 0.0, [(raw_item, 56, 35)]),

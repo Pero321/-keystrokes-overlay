@@ -1,5 +1,6 @@
 package net.pero.uraniummod.client.render;
 
+import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -7,7 +8,6 @@ import net.minecraft.client.render.block.entity.BlockEntityRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 import net.pero.uraniummod.UraniumMod;
@@ -15,39 +15,45 @@ import net.pero.uraniummod.block.CentrifugeBlock;
 import net.pero.uraniummod.block.entity.CentrifugeBlockEntity;
 
 /**
- * Draws the centrifuge's moving parts.
+ * Draws the centrifuge's rotor tower.
  *
- * <p>The plinth and feed pipe stay in the baked JSON model — they never move, so
- * there is no reason to pay for them every frame. Everything here is generated as
- * triangles rather than boxes, which is what lets the drums be actual cylinders:
- * the JSON model format cannot express one.
+ * <p>Only the plinth stays in the baked JSON model. Everything here is emitted
+ * as triangles, which is what lets the tower be a real cylinder — the JSON model
+ * format only expresses axis-aligned boxes, and has no animation at all.
+ *
+ * <p>The tower texture is 64x16 rather than 16x16 because the drum is roughly 39
+ * block-pixels around but only 8 tall; a square texture would have to stretch
+ * about 2.4x to wrap it. It also carries no left-right shading, because entity
+ * render layers light curved surfaces from the vertex normals, and baked-in
+ * shading would rotate with the drum.
  */
 public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<CentrifugeBlockEntity> {
-	private static final Identifier DRUM =
-			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_drum.png");
-	private static final Identifier DRUM_ON =
-			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_drum_on_still.png");
-	private static final Identifier CAP =
-			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_cap.png");
-	private static final Identifier DRUM_TOP =
-			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_drum_top.png");
-	private static final Identifier DRUM_TOP_ON =
-			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_drum_top_on_still.png");
-	private static final Identifier ARM =
-			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_arm.png");
+	private static final Identifier TOWER =
+			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_tower.png");
+	private static final Identifier TOWER_GLOW =
+			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_tower_glow.png");
+	private static final Identifier ROTOR_TOP =
+			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_rotor_top.png");
+	private static final Identifier ROTOR_TOP_GLOW =
+			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_rotor_top_glow.png");
+	private static final Identifier SHAFT =
+			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_shaft.png");
+	private static final Identifier DECK =
+			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_deck.png");
 
 	private static final float PX = 1.0f / 16.0f;
-	private static final int SIDES = 12;
+	private static final int SIDES = 20;
+	private static final int FULL_BRIGHT = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
-	/** Drum centres in block space, matching the plinth cut-outs in the model. */
-	private static final float[][] DRUMS = {
-			{4.0f, 4.0f}, {12.0f, 4.0f}, {8.0f, 11.0f},
-	};
-	private static final float DRUM_R = 3.0f;
-	private static final float DRUM_Y0 = 3.0f;
-	private static final float DRUM_Y1 = 12.0f;
-	private static final float CAP_R = 3.5f;
-	private static final float CAP_Y1 = 14.0f;
+	// v-bands of the tower map, matching tools/gen_textures.py
+	private static final float V_LOWER0 = 0.0f / 16.0f, V_LOWER1 = 3.0f / 16.0f;
+	private static final float V_BODY0 = 3.0f / 16.0f, V_BODY1 = 13.0f / 16.0f;
+	private static final float V_UPPER0 = 13.0f / 16.0f, V_UPPER1 = 16.0f / 16.0f;
+
+	private static final float COLLAR_R = 6.8f, BODY_R = 6.2f, GLOW_R = 6.32f;
+	private static final float HOUSING_R = 4.2f, SHAFT_R = 1.0f;
+	private static final float Y_BASE = 1.5f, Y_BODY0 = 3.5f, Y_BODY1 = 11.5f;
+	private static final float Y_UPPER = 13.5f, Y_HOUSING = 15.0f, Y_SHAFT = 16.0f;
 
 	public CentrifugeBlockEntityRenderer(BlockEntityRendererFactory.Context ctx) {
 	}
@@ -58,104 +64,116 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 		boolean lit = be.getCachedState().contains(CentrifugeBlock.LIT)
 				&& be.getCachedState().get(CentrifugeBlock.LIT);
 		float spin = be.getSpin(tickDelta);
-		float arm = be.getArmPhase(tickDelta);
+		float heat = be.getHeatFraction();
 
-		// vertex colour can only darken, so pulse between dimmed and full white.
-		// This replaces the old animated texture, which cannot work here: only
-		// atlas sprites animate, and these textures are bound directly.
-		int tint = 0xFFFFFFFF;
-		if (be.getWorld() != null && lit) {
-			float t = (be.getWorld().getTime() + tickDelta) * 0.18f;
-			int v = 0xCC + (int) ((MathHelper.sin(t) * 0.5f + 0.5f) * 0x33);
-			tint = 0xFF000000 | (v << 16) | (v << 8) | v;
-		}
+		VertexConsumer tower = vertexConsumers.getBuffer(RenderLayer.getEntityCutoutNoCull(TOWER));
+		VertexConsumer rotorTop = vertexConsumers.getBuffer(
+				RenderLayer.getEntityCutoutNoCull(ROTOR_TOP));
+		VertexConsumer shaftBuf = vertexConsumers.getBuffer(
+				RenderLayer.getEntityCutoutNoCull(SHAFT));
+		VertexConsumer deck = vertexConsumers.getBuffer(
+				RenderLayer.getEntityCutoutNoCull(DECK));
 
-		VertexConsumer drum = vertexConsumers.getBuffer(
-				RenderLayer.getEntityCutoutNoCull(lit ? DRUM_ON : DRUM));
-		VertexConsumer cap = vertexConsumers.getBuffer(RenderLayer.getEntityCutoutNoCull(CAP));
-		VertexConsumer top = vertexConsumers.getBuffer(
-				RenderLayer.getEntityCutoutNoCull(lit ? DRUM_TOP_ON : DRUM_TOP));
-		VertexConsumer armBuf = vertexConsumers.getBuffer(RenderLayer.getEntityCutoutNoCull(ARM));
+		matrices.push();
+		matrices.translate(0.5f, 0.0f, 0.5f);
 
-		for (int i = 0; i < DRUMS.length; i++) {
-			float cx = DRUMS[i][0] * PX;
-			float cz = DRUMS[i][1] * PX;
+		// static armour: the collars and housing do not turn
+		cylinder(matrices, tower, COLLAR_R * PX, Y_BASE * PX, Y_BODY0 * PX,
+				V_LOWER0, V_LOWER1, light, overlay, 0xFFFFFFFF);
+		cylinder(matrices, tower, COLLAR_R * PX, Y_BODY1 * PX, Y_UPPER * PX,
+				V_UPPER0, V_UPPER1, light, overlay, 0xFFFFFFFF);
+		// deck over the collar, or you can see straight down inside the tower
+		disc(matrices, deck, COLLAR_R * PX, Y_UPPER * PX, light, overlay, 0xFFFFFFFF);
+		cylinder(matrices, tower, HOUSING_R * PX, Y_UPPER * PX, Y_HOUSING * PX,
+				V_UPPER0, V_UPPER1, light, overlay, 0xFFFFFFFF);
+		disc(matrices, rotorTop, HOUSING_R * PX, Y_HOUSING * PX, light, overlay, 0xFFFFFFFF);
 
-			// the spinning body. Alternate drums turn the other way, the way a
-			// real cascade is counter-balanced.
+		// the rotor drum itself
+		matrices.push();
+		matrices.multiply(RotationAxis.POSITIVE_Y.rotation(spin));
+		cylinder(matrices, tower, BODY_R * PX, Y_BODY0 * PX, Y_BODY1 * PX,
+				V_BODY0, V_BODY1, light, overlay, 0xFFFFFFFF);
+		matrices.pop();
+
+		// the drive shaft runs faster than the drum it is geared to
+		matrices.push();
+		matrices.multiply(RotationAxis.POSITIVE_Y.rotation(spin * 2.5f));
+		cylinder(matrices, shaftBuf, SHAFT_R * PX, Y_HOUSING * PX, Y_SHAFT * PX,
+				0.0f, 1.0f, light, overlay, 0xFFFFFFFF);
+		for (int i = 0; i < 3; i++) {
 			matrices.push();
-			matrices.translate(cx, 0.0f, cz);
-			matrices.multiply(RotationAxis.POSITIVE_Y.rotation(i % 2 == 0 ? spin : -spin));
-			cylinder(matrices, drum, DRUM_R * PX, DRUM_Y0 * PX, DRUM_Y1 * PX, light, overlay);
-			matrices.pop();
-
-			// the collar and its port stay put while the body turns inside them
-			matrices.push();
-			matrices.translate(cx, 0.0f, cz);
-			cylinder(matrices, cap, CAP_R * PX, DRUM_Y1 * PX, CAP_Y1 * PX, light, overlay);
-			disc(matrices, top, CAP_R * PX, CAP_Y1 * PX, light, overlay, tint);
-			matrices.pop();
-
-			// gold arm, rocking in time with the drums. Aim it away from the
-			// centre of the block so it leans out over open air instead of
-			// across its own drum.
-			float yaw = (float) Math.toDegrees(Math.atan2(cx - 0.5f, cz - 0.5f));
-			float lean = 38.0f + MathHelper.sin(arm + i * 2.1f) * 12.0f;
-			matrices.push();
-			matrices.translate(cx, CAP_Y1 * PX, cz);
-			matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(yaw));
-			matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(lean));
-			cylinder(matrices, armBuf, 0.9f * PX, 0.0f, 5.0f * PX, light, overlay);
+			matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(i * 120.0f));
+			matrices.translate(2.6f * PX, 0.0f, 0.0f);
+			cylinder(matrices, shaftBuf, 0.7f * PX, Y_HOUSING * PX, (Y_HOUSING + 0.9f) * PX,
+					0.0f, 1.0f, light, overlay, 0xFFFFFFFF);
 			matrices.pop();
 		}
+		matrices.pop();
+
+		// Emissive pass. Drawn at full lightmap so the windows glow in the dark
+		// instead of merely being green, which is what made the old model look
+		// dead. Brightness follows heat, with a slow pulse on top.
+		if (heat > 0.02f || lit) {
+			float pulse = 0.78f + 0.22f * MathHelper.sin(spin * 0.7f);
+			int alpha = (int) (MathHelper.clamp(heat, 0.0f, 1.0f) * pulse * 255.0f);
+			if (alpha > 4) {
+				int tint = (alpha << 24) | 0x00FFFFFF;
+				VertexConsumer glow = vertexConsumers.getBuffer(
+						RenderLayer.getEntityTranslucentEmissive(TOWER_GLOW));
+				matrices.push();
+				matrices.multiply(RotationAxis.POSITIVE_Y.rotation(spin));
+				cylinder(matrices, glow, GLOW_R * PX, Y_BODY0 * PX, Y_BODY1 * PX,
+						V_BODY0, V_BODY1, FULL_BRIGHT, overlay, tint);
+				matrices.pop();
+
+				VertexConsumer portGlow = vertexConsumers.getBuffer(
+						RenderLayer.getEntityTranslucentEmissive(ROTOR_TOP_GLOW));
+				disc(matrices, portGlow, HOUSING_R * PX, (Y_HOUSING + 0.02f) * PX,
+						FULL_BRIGHT, overlay, tint);
+			}
+		}
+
+		matrices.pop();
 	}
 
-	/** Emits an open-ended prism approximating a cylinder about the local Y axis. */
-	private static void cylinder(MatrixStack matrices, VertexConsumer vc,
-	                             float radius, float y0, float y1, int light, int overlay) {
+	/** Open-ended prism approximating a cylinder about the local Y axis. */
+	private static void cylinder(MatrixStack matrices, VertexConsumer vc, float radius,
+	                             float y0, float y1, float v0, float v1,
+	                             int light, int overlay, int tint) {
 		MatrixStack.Entry entry = matrices.peek();
 		for (int i = 0; i < SIDES; i++) {
 			float a0 = (float) (Math.PI * 2.0 * i / SIDES);
 			float a1 = (float) (Math.PI * 2.0 * (i + 1) / SIDES);
 			float x0 = MathHelper.cos(a0) * radius, z0 = MathHelper.sin(a0) * radius;
 			float x1 = MathHelper.cos(a1) * radius, z1 = MathHelper.sin(a1) * radius;
-			// wrap the texture once around the circumference, so the markings on
-			// the casing visibly travel as the drum turns
-			float u0 = i / (float) SIDES;
-			float u1 = (i + 1) / (float) SIDES;
+			float u0 = i / (float) SIDES, u1 = (i + 1) / (float) SIDES;
 			float nx = MathHelper.cos((a0 + a1) * 0.5f);
 			float nz = MathHelper.sin((a0 + a1) * 0.5f);
 
-			put(vc, entry, x0, y1, z0, u0, 0.0f, light, overlay, nx, 0.0f, nz);
-			put(vc, entry, x1, y1, z1, u1, 0.0f, light, overlay, nx, 0.0f, nz);
-			put(vc, entry, x1, y0, z1, u1, 1.0f, light, overlay, nx, 0.0f, nz);
-			put(vc, entry, x0, y0, z0, u0, 1.0f, light, overlay, nx, 0.0f, nz);
+			put(vc, entry, x0, y1, z0, u0, v0, light, overlay, nx, 0.0f, nz, tint);
+			put(vc, entry, x1, y1, z1, u1, v0, light, overlay, nx, 0.0f, nz, tint);
+			put(vc, entry, x1, y0, z1, u1, v1, light, overlay, nx, 0.0f, nz, tint);
+			put(vc, entry, x0, y0, z0, u0, v1, light, overlay, nx, 0.0f, nz, tint);
 		}
 	}
 
-	/** Caps a cylinder with a fan of quads, so the port texture reads as a disc. */
-	private static void disc(MatrixStack matrices, VertexConsumer vc,
-	                         float radius, float y, int light, int overlay, int tint) {
+	/** Fan of quads capping a cylinder, so a radial texture reads as a disc. */
+	private static void disc(MatrixStack matrices, VertexConsumer vc, float radius,
+	                         float y, int light, int overlay, int tint) {
 		MatrixStack.Entry entry = matrices.peek();
 		for (int i = 0; i < SIDES; i++) {
 			float a0 = (float) (Math.PI * 2.0 * i / SIDES);
 			float a1 = (float) (Math.PI * 2.0 * (i + 1) / SIDES);
 			float x0 = MathHelper.cos(a0) * radius, z0 = MathHelper.sin(a0) * radius;
 			float x1 = MathHelper.cos(a1) * radius, z1 = MathHelper.sin(a1) * radius;
-			float u0 = 0.5f + MathHelper.cos(a0) * 0.5f, v0 = 0.5f + MathHelper.sin(a0) * 0.5f;
-			float u1 = 0.5f + MathHelper.cos(a1) * 0.5f, v1 = 0.5f + MathHelper.sin(a1) * 0.5f;
+			float u0 = 0.5f + MathHelper.cos(a0) * 0.5f, w0 = 0.5f + MathHelper.sin(a0) * 0.5f;
+			float u1 = 0.5f + MathHelper.cos(a1) * 0.5f, w1 = 0.5f + MathHelper.sin(a1) * 0.5f;
 
 			put(vc, entry, 0.0f, y, 0.0f, 0.5f, 0.5f, light, overlay, 0.0f, 1.0f, 0.0f, tint);
-			put(vc, entry, x0, y, z0, u0, v0, light, overlay, 0.0f, 1.0f, 0.0f, tint);
-			put(vc, entry, x1, y, z1, u1, v1, light, overlay, 0.0f, 1.0f, 0.0f, tint);
+			put(vc, entry, x0, y, z0, u0, w0, light, overlay, 0.0f, 1.0f, 0.0f, tint);
+			put(vc, entry, x1, y, z1, u1, w1, light, overlay, 0.0f, 1.0f, 0.0f, tint);
 			put(vc, entry, 0.0f, y, 0.0f, 0.5f, 0.5f, light, overlay, 0.0f, 1.0f, 0.0f, tint);
 		}
-	}
-
-	private static void put(VertexConsumer vc, MatrixStack.Entry entry,
-	                        float x, float y, float z, float u, float v,
-	                        int light, int overlay, float nx, float ny, float nz) {
-		put(vc, entry, x, y, z, u, v, light, overlay, nx, ny, nz, 0xFFFFFFFF);
 	}
 
 	private static void put(VertexConsumer vc, MatrixStack.Entry entry,

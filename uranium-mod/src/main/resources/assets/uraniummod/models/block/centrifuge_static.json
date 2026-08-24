@@ -4,12 +4,7 @@
     "particle": "uraniummod:block/centrifuge_base",
     "bottom": "uraniummod:block/centrifuge_bottom",
     "base": "uraniummod:block/centrifuge_base",
-    "deck": "uraniummod:block/centrifuge_deck",
-    "drum": "uraniummod:block/centrifuge_drum",
-    "cap": "uraniummod:block/centrifuge_cap",
-    "drumtop": "uraniummod:block/centrifuge_drum_top",
-    "arm": "uraniummod:block/centrifuge_arm",
-    "pipe": "uraniummod:block/centrifuge_pipe"
+    "deck": "uraniummod:block/centrifuge_deck"
   },
   "elements": [
     {
@@ -20,7 +15,7 @@
       ],
       "to": [
         16,
-        3,
+        1.5,
         16
       ],
       "faces": {
@@ -47,9 +42,9 @@
           "texture": "#base",
           "uv": [
             0,
-            6,
+            7,
             16,
-            9
+            8.5
           ],
           "cullface": "north"
         },
@@ -57,9 +52,9 @@
           "texture": "#base",
           "uv": [
             0,
-            6,
+            7,
             16,
-            9
+            8.5
           ],
           "cullface": "south"
         },
@@ -67,9 +62,9 @@
           "texture": "#base",
           "uv": [
             0,
-            6,
+            7,
             16,
-            9
+            8.5
           ],
           "cullface": "east"
         },
@@ -77,70 +72,11 @@
           "texture": "#base",
           "uv": [
             0,
-            6,
+            7,
             16,
-            9
+            8.5
           ],
           "cullface": "west"
-        }
-      }
-    },
-    {
-      "from": [
-        5,
-        3,
-        0.5
-      ],
-      "to": [
-        11,
-        5,
-        2.5
-      ],
-      "faces": {
-        "north": {
-          "texture": "#pipe",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
-        "south": {
-          "texture": "#pipe",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
-        "east": {
-          "texture": "#pipe",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
-        "west": {
-          "texture": "#pipe",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
-        "up": {
-          "texture": "#pipe",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
         }
       }
     }

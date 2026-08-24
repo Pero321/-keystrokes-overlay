@@ -190,6 +190,11 @@ public class CentrifugeBlockEntity extends BlockEntity
 		return MathHelper.lerp(tickDelta, prevSpin, spin);
 	}
 
+	/** Heat as 0..1, for the renderer's glow brightness. */
+	public float getHeatFraction() {
+		return MathHelper.clamp(heat / (float) MAX_HEAT, 0.0f, 1.0f);
+	}
+
 	public float getArmPhase(float tickDelta) {
 		return MathHelper.lerp(tickDelta, prevArmPhase, armPhase);
 	}

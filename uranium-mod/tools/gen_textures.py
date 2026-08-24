@@ -346,211 +346,185 @@ def make_metal_block(path, seed=4):
     write_png(path, px)
 
 # ---------------------------------------------------------------- centrifuge
-# Modelled on Factorio's centrifuge: three cream enrichment drums with green
-# uranium showing through, dark caps, gold arms, on a hazard-striped plinth.
-MET_O = (26, 27, 30, 255)
-MET_D = (56, 58, 63, 255)
-MET_M = (94, 98, 105, 255)
-MET_L = (136, 141, 150, 255)
-MET_H = (178, 184, 194, 255)
+# A heavy armoured rotor tower. Dark steel with gold trim and green glow
+# panels reads far better at block scale than a pale casing, and the glow is
+# what makes the machine look alive.
+STEEL_O = (24, 27, 33, 255)
+STEEL_D = (40, 45, 55, 255)
+STEEL_M = (68, 76, 90, 255)
+STEEL_L = (104, 114, 132, 255)
+STEEL_H = (150, 162, 182, 255)
 
+GOLD_D = (122, 88, 16, 255)
+GOLD_M = (196, 152, 32, 255)
+GOLD_L = (238, 202, 74, 255)
+
+GLOW_D = (26, 84, 44, 255)
+GLOW_M = (58, 178, 88, 255)
+GLOW_L = (118, 245, 148, 255)
+GLOW_H = (206, 255, 214, 255)
+
+# amber palette, shared by the plinth hazard stripes and the console GUI
 AMB_D = (128, 68, 10, 255)
 AMB_M = (206, 122, 22, 255)
 AMB_L = (255, 166, 46, 255)
 AMB_H = (255, 216, 136, 255)
 
-GOLD_D = (122, 88, 16, 255)
-GOLD_M = (196, 152, 32, 255)
-GOLD_L = (238, 202, 74, 255)
-GOLD_H = (255, 238, 160, 255)
-
-CREAM_H = (236, 234, 222, 255)
-CREAM_L = (208, 206, 193, 255)
-CREAM_M = (170, 169, 158, 255)
-CREAM_D = (120, 120, 112, 255)
-CREAM_O = (78, 79, 74, 255)
-
 TAU = math.pi * 2.0
 
-def plate(seed, base=MET_M, spread=12):
+# The drum is ~39 block-pixels around but only 8 tall, so a square texture
+# would have to stretch 2.4x to wrap it. The tower map is 64x16 instead, and
+# carries no left-right shading: the entity shader lights curved surfaces from
+# the vertex normals, and anything baked in would rotate with the drum.
+TOWER_W, TOWER_H = 64, 16
+PANEL = 8                       # eight panels around the circumference
+WIN_TOP, WIN_BOT = 5, 10        # window rows, inclusive
+WIN_L, WIN_R = 3, 6             # window columns within a panel, inclusive
+
+# v-bands of the tower map, shared by the renderer
+BAND_LOWER = (0, 3)             # lower collar
+BAND_BODY = (3, 13)             # spinning body
+BAND_UPPER = (13, 16)           # upper collar
+
+def _tower_pixel(x, y):
+    """One texel of the unwrapped tower, before grain."""
+    p = x % PANEL
+    if y <= 2 or y >= 13:                       # collars
+        if y in (0, 13):
+            return STEEL_L
+        if y in (2, 15):
+            return STEEL_O
+        return STEEL_H if p == 4 else STEEL_D   # bolt heads
+    if y in (3, 12):                            # gold trim rails
+        return GOLD_L if p == 0 else GOLD_M
+    if p <= 1:                                  # vertical strut between panels
+        return STEEL_D
+    if WIN_TOP <= y <= WIN_BOT and WIN_L <= p <= WIN_R:
+        edge = y in (WIN_TOP, WIN_BOT) or p in (WIN_L, WIN_R)
+        # kept deliberately dim: the lit look comes from the emissive overlay,
+        # so an idle machine has to read as genuinely off
+        return STEEL_O if edge else mix(GLOW_D, STEEL_O, 0.45)
+    return STEEL_M
+
+def make_tower(path, seed=71):
     r = Rng(seed)
-    return [[q(sh(base, int((r.f() - 0.5) * spread))) for _ in range(N)] for _ in range(N)]
-
-def frame_edges(px, hi=MET_L, lo=MET_D):
-    for i in range(N):
-        px[0][i] = hi
-        px[i][0] = hi
-        px[N - 1][i] = lo
-        px[i][N - 1] = lo
-
-def bolts(px, coords=((2, 2), (13, 2), (2, 13), (13, 13))):
-    for (bx, by) in coords:
-        px[by][bx] = MET_H
-        if by + 1 < N:
-            px[by + 1][bx] = MET_O
-
-def cylinder_shade(x, lit, mid, dark, edge):
-    """Left-to-right falloff that makes a flat face read as a round drum."""
-    t = abs(x + 0.5 - 8.0) / 8.0
-    if t < 0.28:
-        return mix(lit, mid, t / 0.28)
-    if t < 0.72:
-        return mix(mid, dark, (t - 0.28) / 0.44)
-    return mix(dark, edge, (t - 0.72) / 0.28)
-
-# green uranium showing through the drum casing
-DRUM_SPOTS = [(3, 5), (6, 4), (10, 5), (12, 7), (4, 9), (8, 8),
-              (11, 11), (5, 12), (9, 13), (2, 8), (13, 10), (7, 11)]
-
-def _drum(seed, glow):
-    """glow: 0 = inert, 1 = fully lit. Body texture for one enrichment drum."""
-    r = Rng(seed)
-    px = []
-    for y in range(N):
-        row = []
-        for x in range(N):
-            c = cylinder_shade(x, CREAM_H, CREAM_L, CREAM_M, CREAM_D)
-            row.append(q(sh(c, int((r.f() - 0.5) * 8))))
-        px.append(row)
-    for y in (0, 1, 14, 15):                              # steel rings
-        for x in range(N):
-            base = MET_L if y in (0, 14) else MET_D
-            px[y][x] = q(mix(base, MET_O, abs(x + 0.5 - 8.0) / 16.0))
-    for (sx, sy) in DRUM_SPOTS:                           # uranium showing through
-        dim = mix(URA_D, URA_M, 0.5)
-        bright = mix(URA_B, URA_S, 0.35)
-        c = mix(dim, bright, glow)
-        shade = 1.0 - abs(sx + 0.5 - 8.0) / 22.0          # keep the round falloff
-        c = (cl(c[0] * shade), cl(c[1] * shade), cl(c[2] * shade), 255)
-        px[sy][sx] = q(c)
-        if sx + 1 < N:
-            px[sy][sx + 1] = q(mix(c, CREAM_M, 0.45))
-        if sy + 1 < 14:
-            px[sy + 1][sx] = q(mix(c, CREAM_M, 0.55))
-    return px
-
-def make_drum(path, seed=61):
-    write_png(path, _drum(seed, 0.15))
-
-def make_drum_still(path, seed=61):
-    """Peak-glow single frame: the renderer binds textures directly, and only
-    atlas sprites animate, so the moving drums need a still lit variant."""
-    write_png(path, _drum(seed, 1.0))
-
-def make_drum_top_still(path, seed=63):
-    write_png(path, _drum_top(seed, 1.0))
-
-
-def make_drum_cap(path, seed=62):
-    """Dark collar around the top of a drum."""
-    px = []
-    r = Rng(seed)
-    for y in range(N):
-        row = []
-        for x in range(N):
-            c = cylinder_shade(x, MET_L, MET_M, MET_D, MET_O)
-            row.append(q(sh(c, int((r.f() - 0.5) * 8))))
-        px.append(row)
-    for x in range(N):
-        px[0][x] = q(mix(MET_H, MET_M, abs(x + 0.5 - 8.0) / 12.0))
-        px[3][x] = q(mix(GOLD_M, GOLD_D, abs(x + 0.5 - 8.0) / 10.0))
-        px[N - 1][x] = MET_O
-    for x in range(1, N, 4):                              # collar bolts
-        px[6][x] = MET_H
-        px[7][x] = MET_O
+    px = [[q(sh(_tower_pixel(x, y), int((r.f() - 0.5) * 8)))
+           for x in range(TOWER_W)] for y in range(TOWER_H)]
     write_png(path, px)
 
-def _drum_top(seed, glow):
-    """Looking down on a drum: a rimmed port with the charge inside."""
-    px = plate(seed, MET_D, 8)
+def make_tower_glow(path, seed=72):
+    """Emissive overlay: only the window interiors, everything else clear."""
+    r = Rng(seed)
+    px = []
+    for y in range(TOWER_H):
+        row = []
+        for x in range(TOWER_W):
+            p = x % PANEL
+            if WIN_TOP <= y <= WIN_BOT and WIN_L <= p <= WIN_R \
+                    and not (y in (WIN_TOP, WIN_BOT) or p in (WIN_L, WIN_R)):
+                mid = 1.0 - abs((y - (WIN_TOP + WIN_BOT) / 2.0)) / 3.0
+                row.append(q(sh(mix(GLOW_L, GLOW_H, mid * 0.5),
+                                int((r.f() - 0.5) * 10))))
+            else:
+                row.append((0, 0, 0, 0))
+        px.append(row)
+    write_png(path, px)
+
+def _rotor_top(seed, glow):
+    """Top of the housing, seen from above: a rimmed rotor port."""
+    r = Rng(seed)
+    px = [[q(sh(STEEL_D, int((r.f() - 0.5) * 8))) for _ in range(N)] for _ in range(N)]
     for y in range(N):
         for x in range(N):
             d = math.hypot(x + 0.5 - 8.0, y + 0.5 - 8.0)
-            if d > 7.4:
+            if d > 7.6:
                 continue
-            if d > 6.4:
-                px[y][x] = MET_L
-            elif d > 5.6:
-                px[y][x] = MET_O
-            elif d > 3.2:
-                px[y][x] = q(mix(MET_M, MET_D, (d - 3.2) / 2.4))
-            elif d > 2.4:
-                px[y][x] = MET_O
+            if d > 6.6:
+                px[y][x] = STEEL_L
+            elif d > 6.0:
+                px[y][x] = STEEL_O
+            elif d > 4.6:
+                px[y][x] = GOLD_M if ((x + y) // 2) % 2 == 0 else STEEL_M
+            elif d > 3.6:
+                px[y][x] = STEEL_O
             else:
-                hot = mix(URA_S, URA_B, d / 2.4)
-                cold = mix(URA_D, URA_O, d / 2.4)
+                hot = mix(GLOW_H, GLOW_L, d / 3.6)
+                cold = mix(GLOW_D, STEEL_O, d / 3.6)
                 px[y][x] = q(mix(cold, hot, glow))
-    for (bx, by) in ((3, 3), (12, 3), (3, 12), (12, 12)):
-        px[by][bx] = MET_H
+    for (bx, by) in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        px[by][bx] = STEEL_H
     return px
 
-def make_drum_top(path, seed=63):
-    write_png(path, _drum_top(seed, 0.12))
+def make_rotor_top(path, seed=73):
+    write_png(path, _rotor_top(seed, 0.10))
 
-
-def make_deck(path, seed=64):
-    """Plinth top: tread plate the drums stand on."""
-    px = plate(seed, MET_D, 10)
-    for y in range(2, N, 4):
+def make_rotor_top_glow(path, seed=73):
+    """Emissive: just the port, clear elsewhere."""
+    base = _rotor_top(seed, 1.0)
+    px = []
+    for y in range(N):
+        row = []
         for x in range(N):
-            px[y][x] = q(sh(MET_M, -6))
-            if x % 2 == 0 and y + 1 < N:
-                px[y + 1][x] = MET_O
-    frame_edges(px, MET_M, MET_O)
+            d = math.hypot(x + 0.5 - 8.0, y + 0.5 - 8.0)
+            row.append(base[y][x] if d <= 3.6 else (0, 0, 0, 0))
+        px.append(row)
+    write_png(path, px)
+
+def make_shaft(path, seed=74):
+    """Gold drive shaft. Wraps a thin rod, so no baked shading here either."""
+    r = Rng(seed)
+    px = []
+    for y in range(N):
+        row = []
+        for x in range(N):
+            c = GOLD_M
+            if y % 5 == 0:
+                c = GOLD_D
+            elif y % 5 == 1:
+                c = GOLD_L
+            row.append(q(sh(c, int((r.f() - 0.5) * 10))))
+        px.append(row)
     write_png(path, px)
 
 def make_base(path, seed=45):
     """Plinth skirt: amber/black hazard stripes."""
     r = Rng(seed)
-    px = []
-    for y in range(N):
-        row = []
-        for x in range(N):
-            c = AMB_M if ((x + y) // 3) % 2 == 0 else MET_O
-            row.append(q(sh(c, int((r.f() - 0.5) * 12))))
-        px.append(row)
+    px = [[q(sh(AMB_M if ((x + y) // 3) % 2 == 0 else STEEL_O,
+                int((r.f() - 0.5) * 12))) for x in range(N)] for y in range(N)]
     for i in range(N):
-        px[0][i] = MET_L
-        px[1][i] = MET_D
-        px[N - 1][i] = MET_O
-        px[N - 2][i] = MET_D
+        px[0][i] = STEEL_L
+        px[1][i] = STEEL_D
+        px[N - 1][i] = STEEL_O
+        px[N - 2][i] = STEEL_D
+    write_png(path, px)
+
+def make_deck(path, seed=64):
+    """Plinth top: tread plate the tower stands on."""
+    r = Rng(seed)
+    px = [[q(sh(STEEL_D, int((r.f() - 0.5) * 10))) for _ in range(N)] for _ in range(N)]
+    for y in range(2, N, 4):
+        for x in range(N):
+            px[y][x] = q(sh(STEEL_M, -6))
+            if x % 2 == 0 and y + 1 < N:
+                px[y + 1][x] = STEEL_O
+    for i in range(N):
+        px[0][i] = STEEL_M
+        px[i][0] = STEEL_M
+        px[N - 1][i] = STEEL_O
+        px[i][N - 1] = STEEL_O
     write_png(path, px)
 
 def make_bottom(path, seed=42):
-    px = plate(seed, MET_D, 10)
-    frame_edges(px, MET_M, MET_O)
-    bolts(px)
-    write_png(path, px)
-
-def make_arm(path, seed=65):
-    """Gold hydraulic arm, shaded round across its width."""
     r = Rng(seed)
-    px = []
-    for y in range(N):
-        row = []
-        for x in range(N):
-            c = cylinder_shade(x, GOLD_H, GOLD_L, GOLD_M, GOLD_D)
-            row.append(q(sh(c, int((r.f() - 0.5) * 8))))
-        px.append(row)
-    for y in (2, 7, 12):                                  # segment collars
-        for x in range(N):
-            px[y][x] = q(mix(MET_D, MET_O, abs(x + 0.5 - 8.0) / 12.0))
+    px = [[q(sh(STEEL_D, int((r.f() - 0.5) * 10))) for _ in range(N)] for _ in range(N)]
+    for i in range(N):
+        px[0][i] = STEEL_M
+        px[i][0] = STEEL_M
+        px[N - 1][i] = STEEL_O
+        px[i][N - 1] = STEEL_O
+    for (bx, by) in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        px[by][bx] = STEEL_H
     write_png(path, px)
-
-def make_pipe(path, seed=66):
-    px = []
-    r = Rng(seed)
-    for y in range(N):
-        row = []
-        for x in range(N):
-            c = cylinder_shade(x, MET_L, MET_M, MET_D, MET_O)
-            row.append(q(sh(c, int((r.f() - 0.5) * 6))))
-        px.append(row)
-    for y in range(0, N, 3):                              # corrugations
-        for x in range(N):
-            px[y][x] = q(sh(px[y][x], -22))
-    write_png(path, px)
-
 
 # ---------------------------------------------------------------- gui sheet
 GW, GH = 256, 256
@@ -703,17 +677,14 @@ make_raw_uranium(f"{RES}/textures/item/raw_uranium.png")
 make_ingot(f"{RES}/textures/item/uranium_ingot.png")
 
 B = f"{RES}/textures/block"
-make_drum(f"{B}/centrifuge_drum.png")
-make_drum_cap(f"{B}/centrifuge_cap.png")
-make_drum_top(f"{B}/centrifuge_drum_top.png")
-make_drum_still(f"{B}/centrifuge_drum_on_still.png")
-make_drum_top_still(f"{B}/centrifuge_drum_top_on_still.png")
-make_deck(f"{B}/centrifuge_deck.png")
+make_tower(f"{B}/centrifuge_tower.png")
+make_tower_glow(f"{B}/centrifuge_tower_glow.png")
+make_rotor_top(f"{B}/centrifuge_rotor_top.png")
+make_rotor_top_glow(f"{B}/centrifuge_rotor_top_glow.png")
+make_shaft(f"{B}/centrifuge_shaft.png")
 make_base(f"{B}/centrifuge_base.png")
+make_deck(f"{B}/centrifuge_deck.png")
 make_bottom(f"{B}/centrifuge_bottom.png")
-make_arm(f"{B}/centrifuge_arm.png")
-make_pipe(f"{B}/centrifuge_pipe.png")
-
 
 make_gui(f"{RES}/textures/gui/centrifuge.png")
 

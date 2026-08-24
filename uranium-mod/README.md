@@ -99,54 +99,38 @@ figure (`Heat: 740 / 1000`) and whether it is up to temperature.
 
 ### The block
 
-The centrifuge is modelled on Factorio's: three cream enrichment drums with
-uranium showing through the casing, dark caps with a glowing port, gold arms
-leaning out over each drum, and a feed pipe across the front, all sitting on a
-hazard-striped plinth.
+The centrifuge is a heavy armoured rotor tower: a bolted steel drum with gold
+trim rings and eight glowing panels, on a hazard-striped plinth, with a rotor
+housing and counterweights on top.
 
 ![centrifuge](docs/centrifuge.png)
 
-*Idle, then running at two points in the cycle — note the casing markings have
-turned and the arms have rocked.*
+*Idle, running, and running seen from the front.* Idle really is idle — the
+panels are dark steel-green and the ports are dead. Everything green you see
+lit is an **emissive** pass drawn at full lightmap brightness, so it glows in an
+unlit cave rather than merely being green, and its brightness follows the
+machine's heat.
 
-The drums are **actual cylinders, not boxes**. Minecraft's JSON model format
-can only express axis-aligned cuboids, so the plinth and feed pipe are baked
-JSON while everything that moves is generated as triangles at runtime by
-`CentrifugeBlockEntityRenderer`. That is also what allows real motion: the
-model format has no animation at all.
+Only the plinth is a baked JSON model. The tower is generated as triangles at
+runtime by `CentrifugeBlockEntityRenderer`, which is what lets it be a real
+cylinder — Minecraft's model format only expresses axis-aligned boxes, and has
+no animation at all. While it runs:
 
-While it runs:
-
-- the three drums **spin**, alternate ones counter-rotating, with speed
-  proportional to heat — they wind up as it warms and coast down when power
-  is cut, rather than snapping on and off
-- the gold arms **rock** in time with them
-- **steam** rises from the drum caps and the odd spark jumps
+- the **drum spins**, at a speed proportional to heat, winding up as it warms
+  and coasting down when power is cut
+- the **drive shaft** turns faster than the drum, with its counterweights
+- the panels and rotor port **glow and pulse**
+- **steam** vents from the housing and sparks jump off the collar seam
 - a low **hum** plays from the block
-- the caps' ports **pulse**
 
-None of this needs an extra mod — a block entity renderer is vanilla's own
-mechanism, the same one chests, beds and bells use. Heat is pushed to nearby
-clients in buckets of 100 rather than every tick, so the renderer can match
-drum speed to it without a packet per tick per machine.
+Two things worth knowing about the textures. The tower map is **64×16, not
+16×16**: the drum is about 39 block-pixels around but only 8 tall, so a square
+texture would have to stretch roughly 2.4× to wrap it. And it carries **no
+left-right shading**, because entity render layers light curved surfaces from
+the vertex normals — any shading baked into a texture that wraps the
+circumference would rotate with the drum.
 
-The centrifuge does nothing on its own. **Give it a redstone signal** and it
-starts heating up; cut the signal and it cools back down. It only refines while
-it is at or above operating temperature, so you power it, wait for the gauge to
-pass the notch, and then it works through its input.
-
-| | Value |
-| --- | --- |
-| Maximum heat | 1000 |
-| Operating temperature | 600 (the notch on the gauge) |
-| Heating | +2 per tick while powered — 15 s from cold to operating |
-| Cooling | −3 per tick while unpowered — about 17 s from full to cold |
-| Refining | 160 ticks (8 s) per ingot, once hot enough |
-
-Losing temperature mid-run rewinds the progress arrow rather than pausing it, so
-a centrifuge that keeps browning out never finishes anything. Hoppers work:
-insert from any side but the bottom, pull finished ingots out from underneath.
-It emits a light level of 8 while it's up to temperature.
+None of this needs an extra mod.
 
 ### Other recipes
 

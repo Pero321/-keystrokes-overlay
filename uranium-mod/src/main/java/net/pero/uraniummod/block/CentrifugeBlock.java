@@ -86,8 +86,9 @@ public class CentrifugeBlock extends BlockWithEntity {
 		super.onStateReplaced(state, world, pos, newState, moved);
 	}
 
-	/** Drum centres in pixels, matching CentrifugeBlockEntityRenderer. */
-	private static final float[][] DRUM_XZ = {{4.0f, 4.0f}, {12.0f, 4.0f}, {8.0f, 11.0f}};
+	/** Where the tower vents, in pixels, matching CentrifugeBlockEntityRenderer. */
+	private static final double VENT_Y = 15.2 / 16.0;
+	private static final double COLLAR_R = 6.6 / 16.0;
 
 	@Override
 	public void randomDisplayTick(BlockState state, World world, BlockPos pos, Random random) {
@@ -101,23 +102,26 @@ public class CentrifugeBlock extends BlockWithEntity {
 					0.30f, 0.5f + random.nextFloat() * 0.1f, false);
 		}
 
-		for (float[] drum : DRUM_XZ) {
-			if (random.nextDouble() > 0.45) {
+		// steam off the rotor housing at the top of the tower
+		for (int i = 0; i < 2; i++) {
+			if (random.nextDouble() > 0.5) {
 				continue;
 			}
-			double x = pos.getX() + drum[0] / 16.0 + (random.nextDouble() - 0.5) * 0.16;
-			double y = pos.getY() + 14.6 / 16.0;
-			double z = pos.getZ() + drum[1] / 16.0 + (random.nextDouble() - 0.5) * 0.16;
-			world.addParticle(ParticleTypes.SMOKE, x, y, z,
-					0.0, 0.015 + random.nextDouble() * 0.02, 0.0);
+			world.addParticle(ParticleTypes.SMOKE,
+					pos.getX() + 0.5 + (random.nextDouble() - 0.5) * 0.22,
+					pos.getY() + VENT_Y,
+					pos.getZ() + 0.5 + (random.nextDouble() - 0.5) * 0.22,
+					0.0, 0.02 + random.nextDouble() * 0.025, 0.0);
 		}
 
-		if (random.nextDouble() < 0.12) {
-			float[] drum = DRUM_XZ[random.nextInt(DRUM_XZ.length)];
+		// the odd spark thrown off the collar seam
+		if (random.nextDouble() < 0.15) {
+			double a = random.nextDouble() * Math.PI * 2.0;
 			world.addParticle(ParticleTypes.ELECTRIC_SPARK,
-					pos.getX() + drum[0] / 16.0, pos.getY() + 14.2 / 16.0,
-					pos.getZ() + drum[1] / 16.0,
-					(random.nextDouble() - 0.5) * 0.02, 0.01, (random.nextDouble() - 0.5) * 0.02);
+					pos.getX() + 0.5 + Math.cos(a) * COLLAR_R,
+					pos.getY() + (11.5 + random.nextDouble() * 2.0) / 16.0,
+					pos.getZ() + 0.5 + Math.sin(a) * COLLAR_R,
+					Math.cos(a) * 0.02, 0.01, Math.sin(a) * 0.02);
 		}
 	}
 

@@ -1,30 +1,37 @@
-"""Previews the centrifuge as it renders in world: the baked static shell plus
-the cylinders CentrifugeBlockEntityRenderer generates at runtime.
+"""Previews the centrifuge as it renders in world: the baked plinth plus the
+rotor tower CentrifugeBlockEntityRenderer generates at runtime.
 
-    python3 tools/preview_centrifuge.py out.png [--spin 0.6] [--lit]
+    python3 tools/preview_centrifuge.py out.png [--spin 0.6] [--heat 1.0]
 
-The cylinder maths here mirrors the Java renderer's. It verifies geometry and
-placement -- that the drums sit on the plinth at the right radius and height --
-not the Java rendering code itself, which only the game can exercise.
+The cylinder maths mirrors the Java renderer's. It verifies geometry, texture
+mapping and placement -- not the Java rendering code, which only the game runs.
 """
 import argparse, math, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from render_model import model_quads, rasterize
 
 # must match CentrifugeBlockEntityRenderer
-SIDES = 12
-DRUMS = [(4.0, 4.0), (12.0, 4.0), (8.0, 11.0)]
-DRUM_R, DRUM_Y0, DRUM_Y1 = 3.0, 3.0, 12.0
-CAP_R, CAP_Y1 = 3.5, 14.0
-ARM_R, ARM_LEN = 0.9, 5.0
+SIDES = 20
+COLLAR_R, BODY_R, GLOW_R = 6.8, 6.2, 6.32
+HOUSING_R, SHAFT_R = 4.2, 1.0
+Y_BASE, Y_BODY0, Y_BODY1 = 1.5, 3.5, 11.5
+Y_UPPER, Y_HOUSING, Y_SHAFT = 13.5, 15.0, 16.0
+V_LOWER = (0.0, 3.0)
+V_BODY = (3.0, 13.0)
+V_UPPER = (13.0, 16.0)
 
 NS = "uraniummod:block/"
+TOWER = NS + "centrifuge_tower"
+TOWER_GLOW = NS + "centrifuge_tower_glow"
+ROTOR_TOP = NS + "centrifuge_rotor_top"
+ROTOR_TOP_GLOW = NS + "centrifuge_rotor_top_glow"
+SHAFT = NS + "centrifuge_shaft"
 
-def side_shade(nx, nz):
-    """Approximates Minecraft's directional shading for a curved surface."""
+def side_shade(nx):
+    """Approximates Minecraft's directional shading on a curved surface."""
     return 0.8 - 0.2 * abs(nx)
 
-def cylinder(cx, cz, radius, y0, y1, tex, spin=0.0):
+def cylinder(cx, cz, radius, y0, y1, v0, v1, tex, spin=0.0):
     quads = []
     for i in range(SIDES):
         a0 = math.tau * i / SIDES + spin
@@ -33,13 +40,12 @@ def cylinder(cx, cz, radius, y0, y1, tex, spin=0.0):
         x1, z1 = cx + math.cos(a1) * radius, cz + math.sin(a1) * radius
         u0 = 16.0 * i / SIDES
         u1 = 16.0 * (i + 1) / SIDES
-        nx, nz = math.cos((a0 + a1) / 2), math.sin((a0 + a1) / 2)
-        corners = [(x0, y1, z0), (x1, y1, z1), (x1, y0, z1), (x0, y0, z0)]
-        uvs = [(u0, 0.0), (u1, 0.0), (u1, 16.0), (u0, 16.0)]
-        quads.append((corners, uvs, tex, side_shade(nx, nz)))
+        nx = math.cos((a0 + a1) / 2)
+        quads.append(([(x0, y1, z0), (x1, y1, z1), (x1, y0, z1), (x0, y0, z0)],
+                      [(u0, v0), (u1, v0), (u1, v1), (u0, v1)], tex, side_shade(nx)))
     return quads
 
-def disc(cx, cz, radius, y, tex):
+def disc(cx, cz, radius, y, tex, shade=1.0):
     quads = []
     for i in range(SIDES):
         a0 = math.tau * i / SIDES
@@ -48,56 +54,39 @@ def disc(cx, cz, radius, y, tex):
         x1, z1 = cx + math.cos(a1) * radius, cz + math.sin(a1) * radius
         u0, v0 = 8 + math.cos(a0) * 8, 8 + math.sin(a0) * 8
         u1, v1 = 8 + math.cos(a1) * 8, 8 + math.sin(a1) * 8
-        corners = [(cx, y, cz), (x0, y, z0), (x1, y, z1), (cx, y, cz)]
-        uvs = [(8.0, 8.0), (u0, v0), (u1, v1), (8.0, 8.0)]
-        quads.append((corners, uvs, tex, 1.0))
+        quads.append(([(cx, y, cz), (x0, y, z0), (x1, y, z1), (cx, y, cz)],
+                      [(8, 8), (u0, v0), (u1, v1), (8, 8)], tex, shade))
     return quads
 
-def arm(cx, cz, index, phase):
-    """Thin gold rod leaning off the collar, rocking with the drums."""
-    lean = math.radians(38.0 + math.sin(phase + index * 2.1) * 12.0)
-    yaw = math.atan2(cx - 8.0, cz - 8.0)      # lean away from the block centre
-    quads = []
-    for i in range(SIDES):
-        a0 = math.tau * i / SIDES
-        a1 = math.tau * (i + 1) / SIDES
-        ring = []
-        for a in (a0, a1):
-            for t in (ARM_LEN, 0.0):
-                lx, ly, lz = math.cos(a) * ARM_R, t, math.sin(a) * ARM_R
-                # rotate about X by lean, then about Y by yaw
-                ly2 = ly * math.cos(lean) - lz * math.sin(lean)
-                lz2 = ly * math.sin(lean) + lz * math.cos(lean)
-                lx2 = lx * math.cos(yaw) + lz2 * math.sin(yaw)
-                lz3 = -lx * math.sin(yaw) + lz2 * math.cos(yaw)
-                ring.append((cx + lx2, CAP_Y1 + ly2, cz + lz3))
-        corners = [ring[0], ring[2], ring[3], ring[1]]
-        u0 = 16.0 * i / SIDES
-        u1 = 16.0 * (i + 1) / SIDES
-        uvs = [(u0, 0.0), (u1, 0.0), (u1, 16.0), (u0, 16.0)]
-        quads.append((corners, uvs, NS + "centrifuge_arm", 0.7))
-    return quads
+def build(heat, spin):
+    cx = cz = 8.0
+    q = list(model_quads("uraniummod:block/centrifuge_static"))
+    q += cylinder(cx, cz, COLLAR_R, Y_BASE, Y_BODY0, *V_LOWER, TOWER)
+    q += cylinder(cx, cz, COLLAR_R, Y_BODY1, Y_UPPER, *V_UPPER, TOWER)
+    q += disc(cx, cz, COLLAR_R, Y_UPPER, NS + "centrifuge_deck")
+    q += cylinder(cx, cz, HOUSING_R, Y_UPPER, Y_HOUSING, *V_UPPER, TOWER)
+    q += disc(cx, cz, HOUSING_R, Y_HOUSING, ROTOR_TOP)
+    q += cylinder(cx, cz, BODY_R, Y_BODY0, Y_BODY1, *V_BODY, TOWER, spin)
 
-def build(lit, spin, phase):
-    quads = list(model_quads("uraniummod:block/centrifuge_static"))
-    drum_tex = NS + ("centrifuge_drum_on_still" if lit else "centrifuge_drum")
-    top_tex = NS + ("centrifuge_drum_top_on_still" if lit else "centrifuge_drum_top")
-    for i, (cx, cz) in enumerate(DRUMS):
-        s = spin if i % 2 == 0 else -spin
-        quads += cylinder(cx, cz, DRUM_R, DRUM_Y0, DRUM_Y1, drum_tex, s)
-        quads += cylinder(cx, cz, CAP_R, DRUM_Y1, CAP_Y1, NS + "centrifuge_cap")
-        quads += disc(cx, cz, CAP_R, CAP_Y1, top_tex)
-        quads += arm(cx, cz, i, phase)
-    return quads
+    shaft_spin = spin * 2.5
+    q += cylinder(cx, cz, SHAFT_R, Y_HOUSING, Y_SHAFT, 0.0, 16.0, SHAFT, shaft_spin)
+    for i in range(3):
+        a = shaft_spin + math.radians(i * 120.0)
+        q += cylinder(cx + math.cos(a) * 2.6, cz + math.sin(a) * 2.6,
+                      0.7, Y_HOUSING, Y_HOUSING + 0.9, 0.0, 16.0, SHAFT)
+
+    if heat > 0.02:
+        q += cylinder(cx, cz, GLOW_R, Y_BODY0, Y_BODY1, *V_BODY, TOWER_GLOW, spin)
+        q += disc(cx, cz, HOUSING_R, Y_HOUSING + 0.02, ROTOR_TOP_GLOW)
+    return q
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("out")
     ap.add_argument("--spin", type=float, default=0.0)
-    ap.add_argument("--phase", type=float, default=0.0)
-    ap.add_argument("--lit", action="store_true")
+    ap.add_argument("--heat", type=float, default=0.0)
     ap.add_argument("--size", type=int, default=340)
     ap.add_argument("--yaw", type=float, default=-35.0)
-    ap.add_argument("--pitch", type=float, default=28.0)
+    ap.add_argument("--pitch", type=float, default=24.0)
     a = ap.parse_args()
-    rasterize(build(a.lit, a.spin, a.phase), a.out, a.size, a.yaw, a.pitch)
+    rasterize(build(a.heat, a.spin), a.out, a.size, a.yaw, a.pitch)

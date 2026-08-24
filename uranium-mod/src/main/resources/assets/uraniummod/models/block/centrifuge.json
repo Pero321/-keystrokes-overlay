@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable_with_bottom",
+  "textures": {
+    "top": "uraniummod:block/centrifuge_top",
+    "bottom": "uraniummod:block/centrifuge_bottom",
+    "side": "uraniummod:block/centrifuge_side",
+    "front": "uraniummod:block/centrifuge_front"
+  }
+}

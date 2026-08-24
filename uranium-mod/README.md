@@ -15,6 +15,7 @@ uranium ingots, and the two matching storage blocks.
 | Uranium Ingot | `uraniummod:uranium_ingot` | |
 | Block of Raw Uranium | `uraniummod:raw_uranium_block` | 9× raw uranium |
 | Block of Uranium | `uraniummod:uranium_block` | 9× ingot |
+| Centrifuge | `uraniummod:centrifuge` | Redstone-powered; the only way to make ingots |
 
 Everything appears in its own **Uranium** creative tab, and is also mixed into
 the vanilla Natural / Ingredients / Building Blocks tabs.
@@ -68,9 +69,48 @@ you will rarely see it exposed on a cave wall.
 `tools/verify_worldgen.py` reproduces those numbers — it parses the generated
 region files directly and counts placed blocks.
 
-### Recipes
+### The centrifuge
 
-- Raw uranium → uranium ingot (furnace, 200 ticks / blast furnace, 100 ticks, 0.9 xp)
+A normal furnace will **not** smelt raw uranium — refining it needs the
+centrifuge, crafted from 8 iron ingots around a redstone block and a blast
+furnace:
+
+```
+I I I      I = iron ingot
+I R I      R = block of redstone
+I F I      F = blast furnace
+```
+
+Right-click it to open its screen: one input slot, one output slot, a progress
+arrow, and a heat gauge down the left-hand side with a notch marking the
+temperature you're waiting for.
+
+![centrifuge screen](docs/gui.png)
+
+*Left: cold, holding raw uranium, doing nothing. Right: up to temperature and
+refining.* Hovering the gauge shows the exact percentage and whether it is hot
+enough yet.
+
+The centrifuge does nothing on its own. **Give it a redstone signal** and it
+starts heating up; cut the signal and it cools back down. It only refines while
+it is at or above operating temperature, so you power it, wait for the gauge to
+pass the notch, and then it works through its input.
+
+| | Value |
+| --- | --- |
+| Maximum heat | 1000 |
+| Operating temperature | 600 (the notch on the gauge) |
+| Heating | +2 per tick while powered — 15 s from cold to operating |
+| Cooling | −3 per tick while unpowered — about 17 s from full to cold |
+| Refining | 160 ticks (8 s) per ingot, once hot enough |
+
+Losing temperature mid-run rewinds the progress arrow rather than pausing it, so
+a centrifuge that keeps browning out never finishes anything. Hoppers work:
+insert from any side but the bottom, pull finished ingots out from underneath.
+It emits a light level of 8 while it's up to temperature.
+
+### Other recipes
+
 - 9 raw uranium ⇄ block of raw uranium
 - 9 uranium ingot ⇄ block of uranium
 
@@ -117,7 +157,7 @@ To try it in a dev environment:
 
 ## Textures
 
-The six 16×16 textures are generated procedurally by
+All the 16×16 textures, plus the centrifuge's GUI sheet, are generated procedurally by
 `tools/gen_textures.py` (pure Python, no dependencies) rather than being
 hand-drawn, so the palette can be retuned in one place. Re-run it to
 regenerate everything:
@@ -136,6 +176,12 @@ src/main/java/net/pero/uraniummod/
   item/ModItemGroups.java      creative tabs
   world/ModPlacedFeatures.java registry keys for the placed features
   world/gen/ModWorldGeneration.java  adds them to overworld biomes
+  block/CentrifugeBlock.java   facing + lit block, opens the screen
+  block/entity/CentrifugeBlockEntity.java  heat, progress, inventory, ticking
+  block/entity/ImplementedInventory.java   SidedInventory boilerplate
+  screen/CentrifugeScreenHandler.java      slots + synced heat/progress
+  client/UraniumModClient.java             registers the screen
+  client/screen/CentrifugeScreen.java      draws the gauge and arrow
 
 src/main/resources/
   assets/uraniummod/...        models, blockstates, textures, lang

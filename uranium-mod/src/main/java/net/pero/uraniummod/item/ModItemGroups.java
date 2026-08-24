@@ -33,6 +33,7 @@ public class ModItemGroups {
 			entries.add(ModBlocks.RAW_URANIUM_BLOCK);
 			entries.add(ModItems.URANIUM_INGOT);
 			entries.add(ModBlocks.URANIUM_BLOCK);
+			entries.add(ModBlocks.CENTRIFUGE);
 		});
 
 		// Also surface everything in the vanilla creative tabs, next to the vanilla equivalents.
@@ -50,5 +51,10 @@ public class ModItemGroups {
 			entries.add(ModBlocks.RAW_URANIUM_BLOCK);
 			entries.add(ModBlocks.URANIUM_BLOCK);
 		});
+
+		ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries ->
+				entries.add(ModBlocks.CENTRIFUGE));
+		ItemGroupEvents.modifyEntriesEvent(ItemGroups.REDSTONE).register(entries ->
+				entries.add(ModBlocks.CENTRIFUGE));
 	}
 }

@@ -2,8 +2,10 @@ package net.pero.uraniummod;
 
 import net.fabricmc.api.ModInitializer;
 import net.pero.uraniummod.block.ModBlocks;
+import net.pero.uraniummod.block.entity.ModBlockEntities;
 import net.pero.uraniummod.item.ModItemGroups;
 import net.pero.uraniummod.item.ModItems;
+import net.pero.uraniummod.screen.ModScreenHandlers;
 import net.pero.uraniummod.world.gen.ModWorldGeneration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +18,8 @@ public class UraniumMod implements ModInitializer {
 	public void onInitialize() {
 		ModItems.registerModItems();
 		ModBlocks.registerModBlocks();
+		ModBlockEntities.registerBlockEntities();
+		ModScreenHandlers.registerScreenHandlers();
 		ModItemGroups.registerItemGroups();
 		ModWorldGeneration.generateModWorldGen();
 

@@ -1,16 +1,18 @@
 {
   "itemGroup.uraniummod.uranium": "Uranium",
-
   "block.uraniummod.uranium_ore": "Uranium Ore",
   "block.uraniummod.deepslate_uranium_ore": "Deepslate Uranium Ore",
   "block.uraniummod.raw_uranium_block": "Block of Raw Uranium",
   "block.uraniummod.uranium_block": "Block of Uranium",
-
   "item.uraniummod.uranium_ore": "Uranium Ore",
   "item.uraniummod.deepslate_uranium_ore": "Deepslate Uranium Ore",
   "item.uraniummod.raw_uranium_block": "Block of Raw Uranium",
   "item.uraniummod.uranium_block": "Block of Uranium",
-
   "item.uraniummod.raw_uranium": "Raw Uranium",
-  "item.uraniummod.uranium_ingot": "Uranium Ingot"
+  "item.uraniummod.uranium_ingot": "Uranium Ingot",
+  "block.uraniummod.centrifuge": "Centrifuge",
+  "item.uraniummod.centrifuge": "Centrifuge",
+  "screen.uraniummod.centrifuge.heat": "Heat: %s%%",
+  "screen.uraniummod.centrifuge.ready": "Up to temperature",
+  "screen.uraniummod.centrifuge.warming": "Needs redstone power and more heat"
 }

@@ -3,7 +3,7 @@
   "id": "uraniummod",
   "version": "${version}",
   "name": "Uranium Ore",
-  "description": "Adds uranium ore (stone + deepslate), raw uranium, uranium ingots and storage blocks, with deep underground world generation.",
+  "description": "Adds uranium ore (stone + deepslate), raw uranium, uranium ingots and storage blocks, with deep underground world generation and a redstone-powered centrifuge that must reach temperature before it refines ore.",
   "authors": [
     "Pero321"
   ],
@@ -16,6 +16,9 @@
   "entrypoints": {
     "main": [
       "net.pero.uraniummod.UraniumMod"
+    ],
+    "client": [
+      "net.pero.uraniummod.client.UraniumModClient"
     ]
   },
   "depends": {

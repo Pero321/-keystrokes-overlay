@@ -48,6 +48,16 @@ public class ModBlocks {
 			AbstractBlock.Settings.copy(Blocks.IRON_BLOCK)
 	);
 
+	public static final Block CENTRIFUGE = register(
+			"centrifuge",
+			CentrifugeBlock::new,
+			AbstractBlock.Settings.create()
+					.strength(3.5f, 6.0f)
+					.requiresTool()
+					.sounds(BlockSoundGroup.METAL)
+					.luminance(state -> state.get(CentrifugeBlock.LIT) ? 8 : 0)
+	);
+
 	/**
 	 * Registers a block plus its matching {@link BlockItem}. Since 1.21.2 both the block and the
 	 * item have to know their own registry key before they are constructed, hence the factory.

@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "###",
+    "###",
+    "###"
+  ],
+  "key": {
+    "#": "uraniummod:uranium_ingot"
+  },
+  "result": {
+    "id": "uraniummod:uranium_block",
+    "count": 1
+  }
+}

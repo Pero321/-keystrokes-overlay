@@ -1,0 +1,16 @@
+{
+  "itemGroup.uraniummod.uranium": "Uranium",
+
+  "block.uraniummod.uranium_ore": "Uranium Ore",
+  "block.uraniummod.deepslate_uranium_ore": "Deepslate Uranium Ore",
+  "block.uraniummod.raw_uranium_block": "Block of Raw Uranium",
+  "block.uraniummod.uranium_block": "Block of Uranium",
+
+  "item.uraniummod.uranium_ore": "Uranium Ore",
+  "item.uraniummod.deepslate_uranium_ore": "Deepslate Uranium Ore",
+  "item.uraniummod.raw_uranium_block": "Block of Raw Uranium",
+  "item.uraniummod.uranium_block": "Block of Uranium",
+
+  "item.uraniummod.raw_uranium": "Raw Uranium",
+  "item.uraniummod.uranium_ingot": "Uranium Ingot"
+}

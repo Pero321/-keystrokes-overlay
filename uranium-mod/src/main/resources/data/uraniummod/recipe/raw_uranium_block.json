@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "###",
+    "###",
+    "###"
+  ],
+  "key": {
+    "#": "uraniummod:raw_uranium"
+  },
+  "result": {
+    "id": "uraniummod:raw_uranium_block",
+    "count": 1
+  }
+}

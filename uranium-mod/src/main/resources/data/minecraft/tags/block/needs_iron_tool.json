@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "uraniummod:uranium_ore",
+    "uraniummod:deepslate_uranium_ore",
+    "uraniummod:raw_uranium_block",
+    "uraniummod:uranium_block"
+  ]
+}

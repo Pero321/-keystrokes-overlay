@@ -132,6 +132,20 @@ for name in sorted(os.listdir(os.path.join(ROOT, "assets", NS, "items"))):
     else:
         check_model(m)
 
+# particle definitions name their frames without the textures/particle prefix
+particles_dir = os.path.join(ROOT, "assets", NS, "particles")
+if os.path.isdir(particles_dir):
+    for name in sorted(os.listdir(particles_dir)):
+        data = json.load(open(os.path.join(particles_dir, name)))
+        frames = data.get("textures", [])
+        if not frames:
+            errors.append(f"particles/{name}: no textures listed")
+        for frame in frames:
+            ns, _, short = frame.rpartition(":")
+            ident = f"{ns or 'minecraft'}:particle/{short}"
+            check_texture_file(f"particles/{name}", ident, "frame")
+            seen_textures.add(ident)
+
 tex_dir = os.path.join(ROOT, "assets", NS, "textures")
 for dirpath, _, files in os.walk(tex_dir):
     for f in files:

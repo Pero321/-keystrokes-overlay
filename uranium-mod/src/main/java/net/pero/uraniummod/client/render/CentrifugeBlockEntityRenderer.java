@@ -40,20 +40,27 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_shaft.png");
 	private static final Identifier DECK =
 			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_deck.png");
+	private static final Identifier BASE =
+			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_base.png");
 
 	private static final float PX = 1.0f / 16.0f;
-	private static final int SIDES = 20;
+	private static final int SIDES = 32;
 	private static final int FULL_BRIGHT = LightmapTextureManager.MAX_LIGHT_COORDINATE;
 
-	// v-bands of the tower map, matching tools/gen_textures.py
-	private static final float V_LOWER0 = 0.0f / 16.0f, V_LOWER1 = 3.0f / 16.0f;
-	private static final float V_BODY0 = 3.0f / 16.0f, V_BODY1 = 13.0f / 16.0f;
-	private static final float V_UPPER0 = 13.0f / 16.0f, V_UPPER1 = 16.0f / 16.0f;
+	// v-bands of the 128x24 tower map, matching tools/gen_textures.py
+	private static final float V_LOWER0 = 0.0f / 24.0f, V_LOWER1 = 4.0f / 24.0f;
+	private static final float V_BODY0 = 4.0f / 24.0f, V_BODY1 = 20.0f / 24.0f;
+	private static final float V_UPPER0 = 20.0f / 24.0f, V_UPPER1 = 24.0f / 24.0f;
 
-	private static final float COLLAR_R = 6.8f, BODY_R = 6.2f, GLOW_R = 6.32f;
-	private static final float HOUSING_R = 4.2f, SHAFT_R = 1.0f;
-	private static final float Y_BASE = 1.5f, Y_BODY0 = 3.5f, Y_BODY1 = 11.5f;
-	private static final float Y_UPPER = 13.5f, Y_HOUSING = 15.0f, Y_SHAFT = 16.0f;
+	// The machine claims 3x3x2, so the model runs from -16 to +32 pixels in x and
+	// z and 0 to 32 in y, centred on the controller block's middle.
+	private static final float CX = 8.0f, CZ = 8.0f;
+	private static final float FOOT_MIN = -16.0f, FOOT_MAX = 32.0f;
+	private static final float COLLAR_R = 21.0f, BODY_R = 19.0f, GLOW_R = 19.4f;
+	private static final float HOUSING_R = 13.0f, SHAFT_R = 3.0f;
+	private static final float Y_PLINTH = 5.0f;
+	private static final float Y_BODY0 = 9.0f, Y_BODY1 = 22.0f;
+	private static final float Y_UPPER = 26.0f, Y_HOUSING = 29.0f, Y_SHAFT = 32.0f;
 
 	public CentrifugeBlockEntityRenderer(BlockEntityRendererFactory.Context ctx) {
 	}
@@ -67,7 +74,7 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 		float heat = be.getHeatFraction();
 
 		matrices.push();
-		matrices.translate(0.5f, 0.0f, 0.5f);
+		matrices.translate(CX * PX, 0.0f, CZ * PX);
 
 		// One layer at a time, and each buffer is fetched immediately before it is
 		// used. VertexConsumerProvider.Immediate keeps a single active layer:
@@ -75,10 +82,26 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 		// ends it. Holding several buffers at once and interleaving writes throws
 		// "Not building!" on the first write to a buffer that was already flushed.
 
+		{   // Plinth over the full 3x3 footprint, drawn as one box per block rather
+			// than a single 48px-wide one: stretching a 16px texture across the
+			// whole span is exactly the smearing that spoiled the old drum.
+			VertexConsumer base = vertexConsumers.getBuffer(
+					RenderLayer.getEntityCutoutNoCull(BASE));
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					float x0 = (dx * 16.0f - CX) * PX;
+					float z0 = (dz * 16.0f - CZ) * PX;
+					box(matrices, base, x0, 0.0f, z0,
+							x0 + 16.0f * PX, Y_PLINTH * PX, z0 + 16.0f * PX,
+							light, overlay, 0xFFFFFFFF);
+				}
+			}
+		}
+
 		{   // steel: collars, housing, and the turning drum
 			VertexConsumer tower = vertexConsumers.getBuffer(
 					RenderLayer.getEntityCutoutNoCull(TOWER));
-			cylinder(matrices, tower, COLLAR_R * PX, Y_BASE * PX, Y_BODY0 * PX,
+			cylinder(matrices, tower, COLLAR_R * PX, Y_PLINTH * PX, Y_BODY0 * PX,
 					V_LOWER0, V_LOWER1, light, overlay, 0xFFFFFFFF);
 			cylinder(matrices, tower, COLLAR_R * PX, Y_BODY1 * PX, Y_UPPER * PX,
 					V_UPPER0, V_UPPER1, light, overlay, 0xFFFFFFFF);
@@ -114,17 +137,16 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 			for (int i = 0; i < 3; i++) {
 				matrices.push();
 				matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(i * 120.0f));
-				matrices.translate(2.6f * PX, 0.0f, 0.0f);
-				cylinder(matrices, shaftBuf, 0.7f * PX, Y_HOUSING * PX,
-						(Y_HOUSING + 0.9f) * PX, 0.0f, 1.0f, light, overlay, 0xFFFFFFFF);
+				matrices.translate(8.0f * PX, 0.0f, 0.0f);
+				cylinder(matrices, shaftBuf, 2.0f * PX, Y_HOUSING * PX,
+						(Y_HOUSING + 2.4f) * PX, 0.0f, 1.0f, light, overlay, 0xFFFFFFFF);
 				matrices.pop();
 			}
 			matrices.pop();
 		}
 
 		// Emissive passes last, since they are translucent. Drawn at full lightmap
-		// so the windows glow in the dark instead of merely being green, which is
-		// what made the old model look dead. Brightness follows heat.
+		// so the windows glow in the dark instead of merely being green.
 		if (heat > 0.02f || lit) {
 			float pulse = 0.78f + 0.22f * MathHelper.sin(spin * 0.7f);
 			int alpha = (int) (MathHelper.clamp(heat, 0.0f, 1.0f) * pulse * 255.0f);
@@ -144,13 +166,35 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 				{
 					VertexConsumer portGlow = vertexConsumers.getBuffer(
 							RenderLayer.getEntityTranslucentEmissive(ROTOR_TOP_GLOW));
-					disc(matrices, portGlow, HOUSING_R * PX, (Y_HOUSING + 0.02f) * PX,
+					disc(matrices, portGlow, HOUSING_R * PX, (Y_HOUSING + 0.05f) * PX,
 							FULL_BRIGHT, overlay, tint);
 				}
 			}
 		}
 
 		matrices.pop();
+	}
+
+	/** Axis-aligned box, used for the plinth. */
+	private static void box(MatrixStack matrices, VertexConsumer vc,
+	                        float x0, float y0, float z0, float x1, float y1, float z1,
+	                        int light, int overlay, int tint) {
+		MatrixStack.Entry e = matrices.peek();
+		float[][] faces = {
+				{x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0, 1, 0},    // up
+				{x0, y0, z1, x1, y0, z1, x1, y0, z0, x0, y0, z0, 0, -1, 0},   // down
+				{x1, y1, z0, x0, y1, z0, x0, y0, z0, x1, y0, z0, 0, 0, -1},   // north
+				{x0, y1, z1, x1, y1, z1, x1, y0, z1, x0, y0, z1, 0, 0, 1},    // south
+				{x1, y1, z1, x1, y1, z0, x1, y0, z0, x1, y0, z1, 1, 0, 0},    // east
+				{x0, y1, z0, x0, y1, z1, x0, y0, z1, x0, y0, z0, -1, 0, 0},   // west
+		};
+		float[][] uv = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+		for (float[] f : faces) {
+			for (int i = 0; i < 4; i++) {
+				put(vc, e, f[i * 3], f[i * 3 + 1], f[i * 3 + 2], uv[i][0], uv[i][1],
+						light, overlay, f[12], f[13], f[14], tint);
+			}
+		}
 	}
 
 	/** Open-ended prism approximating a cylinder about the local Y axis. */
@@ -204,8 +248,10 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 				.normal(entry, nx, ny, nz);
 	}
 
+	// the machine is drawn from the controller but spans 3x3x2, so it must not
+	// be culled when the controller block itself leaves view
 	@Override
 	public boolean rendersOutsideBoundingBox(CentrifugeBlockEntity be) {
-		return false;
+		return true;
 	}
 }

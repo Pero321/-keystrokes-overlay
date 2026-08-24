@@ -5,6 +5,7 @@ import net.pero.uraniummod.block.ModBlocks;
 import net.pero.uraniummod.block.entity.ModBlockEntities;
 import net.pero.uraniummod.item.ModItemGroups;
 import net.pero.uraniummod.item.ModItems;
+import net.pero.uraniummod.particle.ModParticles;
 import net.pero.uraniummod.screen.ModScreenHandlers;
 import net.pero.uraniummod.world.gen.ModWorldGeneration;
 import org.slf4j.Logger;
@@ -20,6 +21,7 @@ public class UraniumMod implements ModInitializer {
 		ModBlocks.registerModBlocks();
 		ModBlockEntities.registerBlockEntities();
 		ModScreenHandlers.registerScreenHandlers();
+		ModParticles.registerParticles();
 		ModItemGroups.registerItemGroups();
 		ModWorldGeneration.generateModWorldGen();
 

@@ -11,13 +11,23 @@ NS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
                   "src", "main", "resources", "assets", "uraniummod")
 
 def build():
-    plinth = {"from": [0, 0, 0], "to": [16, 1.5, 16], "faces": {
-        "down": {"texture": "#bottom", "uv": [0, 0, 16, 16], "cullface": "down"},
+    """The in-world model is empty: CentrifugeBlockEntityRenderer draws the whole
+    3x3x2 machine as triangles. Only the particle texture is declared."""
+    return {"textures": {"particle": "uraniummod:block/centrifuge_base"}}
+
+def build_item():
+    """The inventory icon still needs geometry, so it keeps a small plinth."""
+    plinth = {"from": [0, 0, 0], "to": [16, 6, 16], "faces": {
+        "down": {"texture": "#bottom", "uv": [0, 0, 16, 16]},
         "up": {"texture": "#deck", "uv": [0, 0, 16, 16]},
     }}
     for d in ("north", "south", "east", "west"):
-        # a 1.5px-tall face needs a thin slice, or the hazard stripes flatten out
-        plinth["faces"][d] = {"texture": "#base", "uv": [0, 7, 16, 8.5], "cullface": d}
+        plinth["faces"][d] = {"texture": "#base", "uv": [0, 5, 16, 11]}
+    drum = {"from": [3, 6, 3], "to": [13, 16, 13], "faces": {
+        "up": {"texture": "#deck", "uv": [0, 0, 16, 16]},
+    }}
+    for d in ("north", "south", "east", "west"):
+        drum["faces"][d] = {"texture": "#tower", "uv": [0, 4, 16, 20]}
     return {
         "parent": "block/block",
         "textures": {
@@ -25,12 +35,12 @@ def build():
             "bottom": "uraniummod:block/centrifuge_bottom",
             "base": "uraniummod:block/centrifuge_base",
             "deck": "uraniummod:block/centrifuge_deck",
+            "tower": "uraniummod:block/centrifuge_tower",
         },
-        "elements": [plinth],
+        "elements": [plinth, drum],
     }
 
-model = build()
-for name in ("centrifuge_static", "centrifuge"):
+for name, model in (("centrifuge_static", build()), ("centrifuge", build_item())):
     path = os.path.join(NS, "models", "block", f"{name}.json")
     with open(path, "w") as f:
         json.dump(model, f, indent=2)

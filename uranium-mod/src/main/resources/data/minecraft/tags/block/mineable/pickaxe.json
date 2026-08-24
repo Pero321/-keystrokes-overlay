@@ -5,6 +5,7 @@
     "uraniummod:deepslate_uranium_ore",
     "uraniummod:raw_uranium_block",
     "uraniummod:uranium_block",
-    "uraniummod:centrifuge"
+    "uraniummod:centrifuge",
+    "uraniummod:centrifuge_part"
   ]
 }

@@ -62,6 +62,26 @@ public class ModBlocks {
 					.nonOpaque()
 	);
 
+	/** Filler for the rest of the centrifuge's 3x3x2 footprint; never held as an item. */
+	public static final Block CENTRIFUGE_PART = registerBlockOnly(
+			"centrifuge_part",
+			CentrifugePartBlock::new,
+			AbstractBlock.Settings.create()
+					.strength(3.5f, 6.0f)
+					.requiresTool()
+					.sounds(BlockSoundGroup.METAL)
+					.luminance(state -> 0)
+					.dropsNothing()
+	);
+
+	private static Block registerBlockOnly(String name, Function<AbstractBlock.Settings, Block> factory,
+	                                       AbstractBlock.Settings settings) {
+		RegistryKey<Block> key = RegistryKey.of(RegistryKeys.BLOCK,
+				Identifier.of(UraniumMod.MOD_ID, name));
+		Block block = factory.apply(settings.registryKey(key));
+		return Registry.register(Registries.BLOCK, key, block);
+	}
+
 	/**
 	 * Registers a block plus its matching {@link BlockItem}. Since 1.21.2 both the block and the
 	 * item have to know their own registry key before they are constructed, hence the factory.

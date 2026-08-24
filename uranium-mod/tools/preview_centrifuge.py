@@ -11,14 +11,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from render_model import model_quads, rasterize
 
 # must match CentrifugeBlockEntityRenderer
-SIDES = 20
-COLLAR_R, BODY_R, GLOW_R = 6.8, 6.2, 6.32
-HOUSING_R, SHAFT_R = 4.2, 1.0
-Y_BASE, Y_BODY0, Y_BODY1 = 1.5, 3.5, 11.5
-Y_UPPER, Y_HOUSING, Y_SHAFT = 13.5, 15.0, 16.0
-V_LOWER = (0.0, 3.0)
-V_BODY = (3.0, 13.0)
-V_UPPER = (13.0, 16.0)
+SIDES = 32
+CX = CZ = 8.0
+FOOT_MIN, FOOT_MAX = -16.0, 32.0
+COLLAR_R, BODY_R, GLOW_R = 21.0, 19.0, 19.4
+HOUSING_R, SHAFT_R = 13.0, 3.0
+Y_PLINTH = 5.0
+Y_BODY0, Y_BODY1 = 9.0, 22.0
+Y_UPPER, Y_HOUSING, Y_SHAFT = 26.0, 29.0, 32.0
+V_LOWER = (0.0, 4.0 / 24.0 * 16)
+V_BODY = (4.0 / 24.0 * 16, 20.0 / 24.0 * 16)
+V_UPPER = (20.0 / 24.0 * 16, 16.0)
 
 NS = "uraniummod:block/"
 TOWER = NS + "centrifuge_tower"
@@ -26,6 +29,8 @@ TOWER_GLOW = NS + "centrifuge_tower_glow"
 ROTOR_TOP = NS + "centrifuge_rotor_top"
 ROTOR_TOP_GLOW = NS + "centrifuge_rotor_top_glow"
 SHAFT = NS + "centrifuge_shaft"
+BASE = NS + "centrifuge_base"
+DECK = NS + "centrifuge_deck"
 
 def side_shade(nx):
     """Approximates Minecraft's directional shading on a curved surface."""
@@ -58,26 +63,41 @@ def disc(cx, cz, radius, y, tex, shade=1.0):
                       [(8, 8), (u0, v0), (u1, v1), (8, 8)], tex, shade))
     return quads
 
+def box(x0, y0, z0, x1, y1, z1, tex):
+    faces = [
+        ([(x0,y1,z0),(x1,y1,z0),(x1,y1,z1),(x0,y1,z1)], 1.0),
+        ([(x0,y0,z1),(x1,y0,z1),(x1,y0,z0),(x0,y0,z0)], 0.5),
+        ([(x1,y1,z0),(x0,y1,z0),(x0,y0,z0),(x1,y0,z0)], 0.8),
+        ([(x0,y1,z1),(x1,y1,z1),(x1,y0,z1),(x0,y0,z1)], 0.8),
+        ([(x1,y1,z1),(x1,y1,z0),(x1,y0,z0),(x1,y0,z1)], 0.6),
+        ([(x0,y1,z0),(x0,y1,z1),(x0,y0,z1),(x0,y0,z0)], 0.6),
+    ]
+    uv = [(0,0),(16,0),(16,16),(0,16)]
+    return [(c, uv, tex, sh) for c, sh in faces]
+
 def build(heat, spin):
-    cx = cz = 8.0
-    q = list(model_quads("uraniummod:block/centrifuge_static"))
-    q += cylinder(cx, cz, COLLAR_R, Y_BASE, Y_BODY0, *V_LOWER, TOWER)
-    q += cylinder(cx, cz, COLLAR_R, Y_BODY1, Y_UPPER, *V_UPPER, TOWER)
-    q += disc(cx, cz, COLLAR_R, Y_UPPER, NS + "centrifuge_deck")
-    q += cylinder(cx, cz, HOUSING_R, Y_UPPER, Y_HOUSING, *V_UPPER, TOWER)
-    q += disc(cx, cz, HOUSING_R, Y_HOUSING, ROTOR_TOP)
-    q += cylinder(cx, cz, BODY_R, Y_BODY0, Y_BODY1, *V_BODY, TOWER, spin)
+    q = []
+    for dx in (-1, 0, 1):
+        for dz in (-1, 0, 1):
+            x0, z0 = dx * 16.0, dz * 16.0
+            q += box(x0, 0.0, z0, x0 + 16.0, Y_PLINTH, z0 + 16.0, BASE)
+    q += cylinder(CX, CZ, COLLAR_R, Y_PLINTH, Y_BODY0, *V_LOWER, TOWER)
+    q += cylinder(CX, CZ, COLLAR_R, Y_BODY1, Y_UPPER, *V_UPPER, TOWER)
+    q += disc(CX, CZ, COLLAR_R, Y_UPPER, DECK)
+    q += cylinder(CX, CZ, HOUSING_R, Y_UPPER, Y_HOUSING, *V_UPPER, TOWER)
+    q += disc(CX, CZ, HOUSING_R, Y_HOUSING, ROTOR_TOP)
+    q += cylinder(CX, CZ, BODY_R, Y_BODY0, Y_BODY1, *V_BODY, TOWER, spin)
 
     shaft_spin = spin * 2.5
-    q += cylinder(cx, cz, SHAFT_R, Y_HOUSING, Y_SHAFT, 0.0, 16.0, SHAFT, shaft_spin)
+    q += cylinder(CX, CZ, SHAFT_R, Y_HOUSING, Y_SHAFT, 0.0, 16.0, SHAFT, shaft_spin)
     for i in range(3):
         a = shaft_spin + math.radians(i * 120.0)
-        q += cylinder(cx + math.cos(a) * 2.6, cz + math.sin(a) * 2.6,
-                      0.7, Y_HOUSING, Y_HOUSING + 0.9, 0.0, 16.0, SHAFT)
+        q += cylinder(CX + math.cos(a) * 8.0, CZ + math.sin(a) * 8.0,
+                      2.0, Y_HOUSING, Y_HOUSING + 2.4, 0.0, 16.0, SHAFT)
 
     if heat > 0.02:
-        q += cylinder(cx, cz, GLOW_R, Y_BODY0, Y_BODY1, *V_BODY, TOWER_GLOW, spin)
-        q += disc(cx, cz, HOUSING_R, Y_HOUSING + 0.02, ROTOR_TOP_GLOW)
+        q += cylinder(CX, CZ, GLOW_R, Y_BODY0, Y_BODY1, *V_BODY, TOWER_GLOW, spin)
+        q += disc(CX, CZ, HOUSING_R, Y_HOUSING + 0.05, ROTOR_TOP_GLOW)
     return q
 
 if __name__ == "__main__":
@@ -86,7 +106,8 @@ if __name__ == "__main__":
     ap.add_argument("--spin", type=float, default=0.0)
     ap.add_argument("--heat", type=float, default=0.0)
     ap.add_argument("--size", type=int, default=340)
+    ap.add_argument("--zoom", type=float, default=2.4)
     ap.add_argument("--yaw", type=float, default=-35.0)
     ap.add_argument("--pitch", type=float, default=24.0)
     a = ap.parse_args()
-    rasterize(build(a.heat, a.spin), a.out, a.size, a.yaw, a.pitch)
+    rasterize(build(a.heat, a.spin), a.out, a.size, a.yaw, a.pitch, zoom=a.zoom)

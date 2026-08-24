@@ -1,0 +1,58 @@
+{
+  "variants": {
+    "part_x=0,part_y=0,part_z=0": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=0,part_y=0,part_z=1": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=0,part_y=0,part_z=2": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=0,part_y=1,part_z=0": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=0,part_y=1,part_z=1": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=0,part_y=1,part_z=2": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=1,part_y=0,part_z=0": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=1,part_y=0,part_z=1": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=1,part_y=0,part_z=2": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=1,part_y=1,part_z=0": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=1,part_y=1,part_z=1": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=1,part_y=1,part_z=2": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=2,part_y=0,part_z=0": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=2,part_y=0,part_z=1": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=2,part_y=0,part_z=2": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=2,part_y=1,part_z=0": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=2,part_y=1,part_z=1": {
+      "model": "uraniummod:block/centrifuge_part"
+    },
+    "part_x=2,part_y=1,part_z=2": {
+      "model": "uraniummod:block/centrifuge_part"
+    }
+  }
+}

@@ -4,7 +4,8 @@
     "particle": "uraniummod:block/centrifuge_base",
     "bottom": "uraniummod:block/centrifuge_bottom",
     "base": "uraniummod:block/centrifuge_base",
-    "deck": "uraniummod:block/centrifuge_deck"
+    "deck": "uraniummod:block/centrifuge_deck",
+    "tower": "uraniummod:block/centrifuge_tower"
   },
   "elements": [
     {
@@ -15,7 +16,7 @@
       ],
       "to": [
         16,
-        1.5,
+        6,
         16
       ],
       "faces": {
@@ -26,8 +27,7 @@
             0,
             16,
             16
-          ],
-          "cullface": "down"
+          ]
         },
         "up": {
           "texture": "#deck",
@@ -42,41 +42,96 @@
           "texture": "#base",
           "uv": [
             0,
-            7,
+            5,
             16,
-            8.5
-          ],
-          "cullface": "north"
+            11
+          ]
         },
         "south": {
           "texture": "#base",
           "uv": [
             0,
-            7,
+            5,
             16,
-            8.5
-          ],
-          "cullface": "south"
+            11
+          ]
         },
         "east": {
           "texture": "#base",
           "uv": [
             0,
-            7,
+            5,
             16,
-            8.5
-          ],
-          "cullface": "east"
+            11
+          ]
         },
         "west": {
           "texture": "#base",
           "uv": [
             0,
-            7,
+            5,
             16,
-            8.5
-          ],
-          "cullface": "west"
+            11
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        3,
+        6,
+        3
+      ],
+      "to": [
+        13,
+        16,
+        13
+      ],
+      "faces": {
+        "up": {
+          "texture": "#deck",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "north": {
+          "texture": "#tower",
+          "uv": [
+            0,
+            4,
+            16,
+            20
+          ]
+        },
+        "south": {
+          "texture": "#tower",
+          "uv": [
+            0,
+            4,
+            16,
+            20
+          ]
+        },
+        "east": {
+          "texture": "#tower",
+          "uv": [
+            0,
+            4,
+            16,
+            20
+          ]
+        },
+        "west": {
+          "texture": "#tower",
+          "uv": [
+            0,
+            4,
+            16,
+            20
+          ]
         }
       }
     }

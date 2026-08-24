@@ -118,7 +118,7 @@ public class CentrifugeBlockEntity extends BlockEntity
 			return;
 		}
 
-		boolean powered = world.isReceivingRedstonePower(pos);
+		boolean powered = CentrifugeBlock.isStructurePowered(world, pos);
 		boolean dirty = false;
 
 		if (powered) {

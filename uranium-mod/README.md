@@ -99,36 +99,40 @@ figure (`Heat: 740 / 1000`) and whether it is up to temperature.
 
 ### The block
 
-The centrifuge is a heavy armoured rotor tower: a bolted steel drum with gold
-trim rings and eight glowing panels, on a hazard-striped plinth, with a rotor
-housing and counterweights on top.
+The centrifuge is a **3×3 machine, two blocks tall** — eighteen blocks of space.
+You place one item and it claims the whole footprint automatically, the way a
+Factorio building does; breaking any part of it takes the whole machine down and
+returns the item. Hoppers work against any face.
 
 ![centrifuge](docs/centrifuge.png)
 
-*Idle, running, and running seen from the front.* Idle really is idle — the
-panels are dark steel-green and the ports are dead. Everything green you see
-lit is an **emissive** pass drawn at full lightmap brightness, so it glows in an
-unlit cave rather than merely being green, and its brightness follows the
-machine's heat.
+*Idle, running, and running from the front.* Idle really is idle — the panels are
+dark and the port is dead. Everything lit is an **emissive** pass drawn at full
+lightmap brightness, so it glows in an unlit cave rather than merely being green,
+and its brightness follows the machine's heat.
 
-Only the plinth is a baked JSON model. The tower is generated as triangles at
-runtime by `CentrifugeBlockEntityRenderer`, which is what lets it be a real
-cylinder — Minecraft's model format only expresses axis-aligned boxes, and has
-no animation at all. While it runs:
+Only the controller carries the renderer; the other seventeen blocks are
+invisible filler that forward interaction, hoppers and breaking to it, and store
+their offset in the block state so they cost no tick or storage overhead. While
+it runs:
 
 - the **drum spins**, at a speed proportional to heat, winding up as it warms
   and coasting down when power is cut
 - the **drive shaft** turns faster than the drum, with its counterweights
 - the panels and rotor port **glow and pulse**
-- **steam** vents from the housing and sparks jump off the collar seam
-- a low **hum** plays from the block
+- **uranium steam** — a custom particle, not vanilla smoke — vents from the top,
+  swelling and bleeding from hot green to plain grey as it cools
+- sparks jump off the collar seam and a low **hum** plays
 
-Two things worth knowing about the textures. The tower map is **64×16, not
-16×16**: the drum is about 39 block-pixels around but only 8 tall, so a square
-texture would have to stretch roughly 2.4× to wrap it. And it carries **no
-left-right shading**, because entity render layers light curved surfaces from
-the vertex normals — any shading baked into a texture that wraps the
-circumference would rotate with the drum.
+Because the controller sits in the middle of its own footprint, surrounded by
+its own parts, redstone is read across the whole structure rather than at the
+controller — asking the controller alone would always answer no.
+
+Textures are sized to the surface they wrap. The tower map is **128×24**: the
+drum is about 119 block-pixels around and 14 tall, so a square texture would
+have to stretch to fit. The plinth is drawn as nine per-block boxes for the same
+reason. Neither carries baked left-right shading, because entity render layers
+light curved surfaces from the vertex normals.
 
 None of this needs an extra mod.
 

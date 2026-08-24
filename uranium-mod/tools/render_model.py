@@ -171,7 +171,7 @@ def model_quads(model_id, frame=0):
             quads.append((corners, uvs, tex_id, FACE_SHADE[face]))
     return quads
 
-def rasterize(quads, out, size=512, yaw=-35.0, pitch=28.0, frame=0, bg=(0, 0, 0, 0)):
+def rasterize(quads, out, size=512, yaw=-35.0, pitch=28.0, frame=0, bg=(0, 0, 0, 0), zoom=1.0):
     ss = 3                                     # supersample factor
     W = size * ss
     buf = [[bg for _ in range(W)] for _ in range(W)]
@@ -179,7 +179,7 @@ def rasterize(quads, out, size=512, yaw=-35.0, pitch=28.0, frame=0, bg=(0, 0, 0,
 
     cy, sy_ = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
     cp, sp = math.cos(math.radians(pitch)), math.sin(math.radians(pitch))
-    scale = W / 26.0
+    scale = W / (26.0 * zoom)
 
     def project(p):
         x, y, z = p[0]-8.0, p[1]-8.0, p[2]-8.0

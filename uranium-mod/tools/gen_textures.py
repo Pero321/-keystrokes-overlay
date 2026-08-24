@@ -123,23 +123,43 @@ def stone_base(seed, base, spread, tint=(0, 0, 0)):
     return px
 
 def make_ore(path, seed, base, spread, tint=(0, 0, 0)):
+    """Stone with uranium crystals seated in it.
+
+    Each crystal is lit from its own top-left corner rather than the texture's,
+    so the cluster reads as separate faceted lumps instead of one flat blob, and
+    the stone around it is shadowed so the crystals sit *in* the rock.
+    """
     px = stone_base(seed, base, spread, tint)
     nz = noise(seed + 977, passes=1)
+
     for y in range(N):
         for x in range(N):
             if is_ore(x, y):
                 continue
-            if any(is_ore(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
-                px[y][x] = sh(px[y][x], -18)
+            touching = [(dx, dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))
+                        if is_ore(x + dx, y + dy)]
+            if touching:
+                # deeper shadow where the crystal overhangs the stone
+                deep = any(dx == -1 or dy == -1 for dx, dy in touching)
+                px[y][x] = sh(px[y][x], -26 if deep else -14)
+
     for y in range(N):
         for x in range(N):
             if not is_ore(x, y):
                 continue
-            above = y > 0 and is_ore(x, y - 1)
-            below = y < N - 1 and is_ore(x, y + 1)
-            left = x > 0 and is_ore(x - 1, y)
-            c = URA_B if (not above or not left) else (URA_D if not below else URA_M)
-            px[y][x] = q(sh(c, int((nz[y][x] - 0.5) * 22)))
+            up = is_ore(x, y - 1)
+            down = is_ore(x, y + 1)
+            left = is_ore(x - 1, y)
+            right = is_ore(x + 1, y)
+            if not up and not left:
+                c = mix(URA_B, URA_S, 0.45)             # lit corner
+            elif not up or not left:
+                c = URA_B
+            elif not down or not right:
+                c = URA_D                               # shaded underside
+            else:
+                c = URA_M if (x + y) % 3 else URA_L     # faceted interior
+            px[y][x] = q(sh(c, int((nz[y][x] - 0.5) * 18)))
     write_png(path, px)
 
 # ---------------------------------------------------------------- raw uranium
@@ -310,7 +330,7 @@ CHUNKS = [(3.4, 3.2, 3.5), (11.2, 2.8, 3.2), (7.6, 9.4, 3.6),
           (13.6, 10.2, 3.0), (2.4, 12.4, 3.1), (14.6, 15.4, 2.6)]
 
 def make_raw_block(path, seed=3):
-    """Packed crystal chunks with dark seams."""
+    """Packed crystal chunks, banded into flat facets so they read as cut stone."""
     r = Rng(seed)
     px = []
     for y in range(N):
@@ -319,30 +339,51 @@ def make_raw_block(path, seed=3):
             bd, off, rad = 1e9, None, None
             for (cx, cy, rr) in CHUNKS:
                 d = math.hypot(wd(x + 0.5, cx), wd(y + 0.5, cy)) / rr
-                if d < bd: bd, off, rad = d, (x + 0.5 - cx, y + 0.5 - cy), rr
-            if bd >= 1.0:    c = URA_O
-            elif bd > 0.80:  c = URA_D
+                if d < bd:
+                    bd, off, rad = d, (x + 0.5 - cx, y + 0.5 - cy), rr
+            if bd >= 1.0:
+                c = URA_O                                   # seam
+            elif bd > 0.84:
+                c = mix(URA_D, URA_O, 0.4)                  # rim
             else:
-                lit = (-off[0] - off[1]) / (rad * 1.6)
-                c = URA_B if lit > 0.42 else (URA_L if lit > 0.05 else
-                                              (URA_M if lit > -0.32 else URA_D))
-            row.append(q(sh(c, int((r.f() - 0.5) * 10))))
+                lit = (-off[0] - off[1]) / (rad * 1.5)
+                if lit > 0.55:
+                    c = mix(URA_B, URA_S, 0.35)
+                elif lit > 0.22:
+                    c = URA_B
+                elif lit > -0.10:
+                    c = URA_L
+                elif lit > -0.42:
+                    c = URA_M
+                else:
+                    c = URA_D
+            row.append(q(sh(c, int((r.f() - 0.5) * 8))))
         px.append(row)
     write_png(path, px)
 
 def make_metal_block(path, seed=4):
-    """Refined metal: flat brushed streaks, tiles seamlessly."""
+    """Refined metal: brushed streaks with a bevelled edge and corner studs, so
+    the block has a silhouette instead of reading as flat noise."""
     r = Rng(seed)
     rows = [Rng(seed * 7919 + y * 104729).f() for y in range(N)]
     px = []
     for y in range(N):
         row = []
         for x in range(N):
-            v = rows[y] + (r.f() - 0.5) * 0.22
+            v = rows[y] + (r.f() - 0.5) * 0.20
             c = (URA_D if v < 0.26 else URA_M if v < 0.60 else
                  URA_L if v < 0.86 else URA_B)
             row.append(q(c))
         px.append(row)
+    for i in range(N):
+        px[0][i] = q(mix(px[0][i], URA_S, 0.45))
+        px[i][0] = q(mix(px[i][0], URA_B, 0.40))
+        px[N - 1][i] = q(mix(px[N - 1][i], URA_O, 0.45))
+        px[i][N - 1] = q(mix(px[i][N - 1], URA_O, 0.35))
+    for (bx, by) in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        px[by][bx] = q(mix(URA_S, URA_B, 0.4))
+        if by + 1 < N:
+            px[by + 1][bx] = q(URA_D)
     write_png(path, px)
 
 # ---------------------------------------------------------------- centrifuge
@@ -376,33 +417,33 @@ TAU = math.pi * 2.0
 # would have to stretch 2.4x to wrap it. The tower map is 64x16 instead, and
 # carries no left-right shading: the entity shader lights curved surfaces from
 # the vertex normals, and anything baked in would rotate with the drum.
-TOWER_W, TOWER_H = 64, 16
+TOWER_W, TOWER_H = 128, 24
 PANEL = 8                       # eight panels around the circumference
-WIN_TOP, WIN_BOT = 5, 10        # window rows, inclusive
+WIN_TOP, WIN_BOT = 7, 16        # window rows, inclusive
 WIN_L, WIN_R = 3, 6             # window columns within a panel, inclusive
 
 # v-bands of the tower map, shared by the renderer
-BAND_LOWER = (0, 3)             # lower collar
-BAND_BODY = (3, 13)             # spinning body
-BAND_UPPER = (13, 16)           # upper collar
+BAND_LOWER = (0, 4)             # lower collar
+BAND_BODY = (4, 20)             # spinning body
+BAND_UPPER = (20, 24)           # upper collar
 
 def _tower_pixel(x, y):
     """One texel of the unwrapped tower, before grain."""
     p = x % PANEL
-    if y <= 2 or y >= 13:                       # collars
-        if y in (0, 13):
+    if y <= 3 or y >= 20:                                   # collars
+        if y in (0, 20):
             return STEEL_L
-        if y in (2, 15):
+        if y in (3, TOWER_H - 1):
             return STEEL_O
-        return STEEL_H if p == 4 else STEEL_D   # bolt heads
-    if y in (3, 12):                            # gold trim rails
+        return STEEL_H if p == 4 else STEEL_D               # bolt heads
+    if y in (4, 19):                                        # gold trim rails
         return GOLD_L if p == 0 else GOLD_M
-    if p <= 1:                                  # vertical strut between panels
+    if p <= 1:                                              # vertical strut
         return STEEL_D
     if WIN_TOP <= y <= WIN_BOT and WIN_L <= p <= WIN_R:
         edge = y in (WIN_TOP, WIN_BOT) or p in (WIN_L, WIN_R)
-        # kept deliberately dim: the lit look comes from the emissive overlay,
-        # so an idle machine has to read as genuinely off
+        # deliberately dim: the lit look comes from the emissive overlay, so an
+        # idle machine has to read as genuinely off
         return STEEL_O if edge else mix(GLOW_D, STEEL_O, 0.45)
     return STEEL_M
 
@@ -422,7 +463,7 @@ def make_tower_glow(path, seed=72):
             p = x % PANEL
             if WIN_TOP <= y <= WIN_BOT and WIN_L <= p <= WIN_R \
                     and not (y in (WIN_TOP, WIN_BOT) or p in (WIN_L, WIN_R)):
-                mid = 1.0 - abs((y - (WIN_TOP + WIN_BOT) / 2.0)) / 3.0
+                mid = max(0.0, 1.0 - abs(y - (WIN_TOP + WIN_BOT) / 2.0) / 6.0)
                 row.append(q(sh(mix(GLOW_L, GLOW_H, mid * 0.5),
                                 int((r.f() - 0.5) * 10))))
             else:
@@ -430,13 +471,17 @@ def make_tower_glow(path, seed=72):
         px.append(row)
     write_png(path, px)
 
+ROTOR_N = 32
+
 def _rotor_top(seed, glow):
     """Top of the housing, seen from above: a rimmed rotor port."""
     r = Rng(seed)
-    px = [[q(sh(STEEL_D, int((r.f() - 0.5) * 8))) for _ in range(N)] for _ in range(N)]
-    for y in range(N):
-        for x in range(N):
-            d = math.hypot(x + 0.5 - 8.0, y + 0.5 - 8.0)
+    px = [[q(sh(STEEL_D, int((r.f() - 0.5) * 8)))
+           for _ in range(ROTOR_N)] for _ in range(ROTOR_N)]
+    k = ROTOR_N / 16.0
+    for y in range(ROTOR_N):
+        for x in range(ROTOR_N):
+            d = math.hypot(x + 0.5 - ROTOR_N / 2.0, y + 0.5 - ROTOR_N / 2.0) / k
             if d > 7.6:
                 continue
             if d > 6.6:
@@ -461,11 +506,12 @@ def make_rotor_top(path, seed=73):
 def make_rotor_top_glow(path, seed=73):
     """Emissive: just the port, clear elsewhere."""
     base = _rotor_top(seed, 1.0)
+    k = ROTOR_N / 16.0
     px = []
-    for y in range(N):
+    for y in range(ROTOR_N):
         row = []
-        for x in range(N):
-            d = math.hypot(x + 0.5 - 8.0, y + 0.5 - 8.0)
+        for x in range(ROTOR_N):
+            d = math.hypot(x + 0.5 - ROTOR_N / 2.0, y + 0.5 - ROTOR_N / 2.0) / k
             row.append(base[y][x] if d <= 3.6 else (0, 0, 0, 0))
         px.append(row)
     write_png(path, px)

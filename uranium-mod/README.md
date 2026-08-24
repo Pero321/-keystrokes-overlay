@@ -106,14 +106,29 @@ hazard-striped plinth.
 
 ![centrifuge](docs/centrifuge.png)
 
-*Idle, running, and seen from the front.* The drums and their caps animate
-while it runs:
+*Idle, then running at two points in the cycle — note the casing markings have
+turned and the arms have rocked.*
 
-![centrifuge animation](docs/animation.png)
+The drums are **actual cylinders, not boxes**. Minecraft's JSON model format
+can only express axis-aligned cuboids, so the plinth and feed pipe are baked
+JSON while everything that moves is generated as triangles at runtime by
+`CentrifugeBlockEntityRenderer`. That is also what allows real motion: the
+model format has no animation at all.
 
-Both strips only play in the `lit=true` state — an idle centrifuge has dark
-ports and dull green casing, so "is it actually running?" is answerable at a
-glance.
+While it runs:
+
+- the three drums **spin**, alternate ones counter-rotating, with speed
+  proportional to heat — they wind up as it warms and coast down when power
+  is cut, rather than snapping on and off
+- the gold arms **rock** in time with them
+- **steam** rises from the drum caps and the odd spark jumps
+- a low **hum** plays from the block
+- the caps' ports **pulse**
+
+None of this needs an extra mod — a block entity renderer is vanilla's own
+mechanism, the same one chests, beds and bells use. Heat is pushed to nearby
+clients in buckets of 100 rather than every tick, so the renderer can match
+drum speed to it without a packet per tick per machine.
 
 The centrifuge does nothing on its own. **Give it a redstone signal** and it
 starts heating up; cut the signal and it cools back down. It only refines while
@@ -197,9 +212,9 @@ Helper scripts alongside it:
 | `tools/gen_textures.py` | Generates every texture, the animation strips and the GUI sheet |
 | `tools/validate_assets.py` | Walks blockstates → models → textures and fails if any reference doesn't resolve, or an animation strip isn't a whole number of frames |
 | `tools/preview_textures.py` | Contact sheet of the block and item textures |
-| `tools/preview_animation.py` | Lays the animation frames out side by side |
 | `tools/preview_gui.py` | Mocks up the live centrifuge screen from the GUI sheet |
 | `tools/render_model.py` | Software-renders a block model to a PNG, so geometry can be checked without launching the game |
+| `tools/preview_centrifuge.py` | Renders the static model *plus* the renderer's generated cylinders, at a given spin and arm phase |
 | `tools/gen_centrifuge_model.py` | Builds the centrifuge's multi-element model |
 | `tools/verify_worldgen.py` | Counts placed blocks in a generated world |
 
@@ -211,8 +226,14 @@ elements with Minecraft's own directional face shading, so the geometry can be
 eyeballed without a client:
 
 ```bash
-python3 tools/render_model.py uraniummod:block/centrifuge_on out.png --frame 4
+python3 tools/render_model.py uraniummod:block/centrifuge out.png
+python3 tools/preview_centrifuge.py out.png --lit --spin 0.55 --phase 2.4
 ```
+
+`validate_assets.py` also checks texture paths written as string literals in
+Java — the block entity renderer binds its textures that way, so a typo there
+is invisible to the model walk and would only appear in game as a
+missing-texture checkerboard. It reports unreferenced textures too.
 
 ## Layout
 

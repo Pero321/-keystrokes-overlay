@@ -432,12 +432,14 @@ def _drum(seed, glow):
 def make_drum(path, seed=61):
     write_png(path, _drum(seed, 0.15))
 
-def make_drum_on(path, frames=8, seed=61):
-    out = []
-    for f in range(frames):
-        glow = 0.45 + 0.55 * (0.5 - 0.5 * math.cos(TAU * f / frames))
-        out.extend(_drum(seed, glow))
-    write_png(path, out)
+def make_drum_still(path, seed=61):
+    """Peak-glow single frame: the renderer binds textures directly, and only
+    atlas sprites animate, so the moving drums need a still lit variant."""
+    write_png(path, _drum(seed, 1.0))
+
+def make_drum_top_still(path, seed=63):
+    write_png(path, _drum_top(seed, 1.0))
+
 
 def make_drum_cap(path, seed=62):
     """Dark collar around the top of a drum."""
@@ -485,12 +487,6 @@ def _drum_top(seed, glow):
 def make_drum_top(path, seed=63):
     write_png(path, _drum_top(seed, 0.12))
 
-def make_drum_top_on(path, frames=8, seed=63):
-    out = []
-    for f in range(frames):
-        glow = 0.45 + 0.55 * (0.5 - 0.5 * math.cos(TAU * f / frames))
-        out.extend(_drum_top(seed, glow))
-    write_png(path, out)
 
 def make_deck(path, seed=64):
     """Plinth top: tread plate the drums stand on."""
@@ -555,14 +551,6 @@ def make_pipe(path, seed=66):
             px[y][x] = q(sh(px[y][x], -22))
     write_png(path, px)
 
-def write_mcmeta(path, frametime, interpolate=False):
-    body = {"animation": {"frametime": frametime}}
-    if interpolate:
-        body["animation"]["interpolate"] = True
-    with open(path, "w") as f:
-        json.dump(body, f, indent=2)
-        f.write("\n")
-    print("wrote", os.path.relpath(path, RES))
 
 # ---------------------------------------------------------------- gui sheet
 GW, GH = 256, 256
@@ -716,18 +704,16 @@ make_ingot(f"{RES}/textures/item/uranium_ingot.png")
 
 B = f"{RES}/textures/block"
 make_drum(f"{B}/centrifuge_drum.png")
-make_drum_on(f"{B}/centrifuge_drum_on.png")
 make_drum_cap(f"{B}/centrifuge_cap.png")
 make_drum_top(f"{B}/centrifuge_drum_top.png")
-make_drum_top_on(f"{B}/centrifuge_drum_top_on.png")
+make_drum_still(f"{B}/centrifuge_drum_on_still.png")
+make_drum_top_still(f"{B}/centrifuge_drum_top_on_still.png")
 make_deck(f"{B}/centrifuge_deck.png")
 make_base(f"{B}/centrifuge_base.png")
 make_bottom(f"{B}/centrifuge_bottom.png")
 make_arm(f"{B}/centrifuge_arm.png")
 make_pipe(f"{B}/centrifuge_pipe.png")
 
-write_mcmeta(f"{B}/centrifuge_drum_on.png.mcmeta", 3, interpolate=True)
-write_mcmeta(f"{B}/centrifuge_drum_top_on.png.mcmeta", 3, interpolate=True)
 
 make_gui(f"{RES}/textures/gui/centrifuge.png")
 

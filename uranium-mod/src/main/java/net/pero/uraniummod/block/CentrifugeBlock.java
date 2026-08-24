@@ -10,7 +10,10 @@ import net.minecraft.block.entity.BlockEntityTicker;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemPlacementContext;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.screen.NamedScreenHandlerFactory;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.BooleanProperty;
 import net.minecraft.state.property.EnumProperty;
@@ -20,6 +23,7 @@ import net.minecraft.util.ItemScatterer;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
 import net.pero.uraniummod.block.entity.CentrifugeBlockEntity;
 import net.pero.uraniummod.block.entity.ModBlockEntities;
@@ -80,6 +84,41 @@ public class CentrifugeBlock extends BlockWithEntity {
 			}
 		}
 		super.onStateReplaced(state, world, pos, newState, moved);
+	}
+
+	/** Drum centres in pixels, matching CentrifugeBlockEntityRenderer. */
+	private static final float[][] DRUM_XZ = {{4.0f, 4.0f}, {12.0f, 4.0f}, {8.0f, 11.0f}};
+
+	@Override
+	public void randomDisplayTick(BlockState state, World world, BlockPos pos, Random random) {
+		if (!state.get(LIT)) {
+			return;
+		}
+
+		if (random.nextDouble() < 0.10) {
+			world.playSound(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+					SoundEvents.BLOCK_BEACON_AMBIENT, SoundCategory.BLOCKS,
+					0.30f, 0.5f + random.nextFloat() * 0.1f, false);
+		}
+
+		for (float[] drum : DRUM_XZ) {
+			if (random.nextDouble() > 0.45) {
+				continue;
+			}
+			double x = pos.getX() + drum[0] / 16.0 + (random.nextDouble() - 0.5) * 0.16;
+			double y = pos.getY() + 14.6 / 16.0;
+			double z = pos.getZ() + drum[1] / 16.0 + (random.nextDouble() - 0.5) * 0.16;
+			world.addParticle(ParticleTypes.SMOKE, x, y, z,
+					0.0, 0.015 + random.nextDouble() * 0.02, 0.0);
+		}
+
+		if (random.nextDouble() < 0.12) {
+			float[] drum = DRUM_XZ[random.nextInt(DRUM_XZ.length)];
+			world.addParticle(ParticleTypes.ELECTRIC_SPARK,
+					pos.getX() + drum[0] / 16.0, pos.getY() + 14.2 / 16.0,
+					pos.getZ() + drum[1] / 16.0,
+					(random.nextDouble() - 0.5) * 0.02, 0.01, (random.nextDouble() - 0.5) * 0.02);
+		}
 	}
 
 	@Override

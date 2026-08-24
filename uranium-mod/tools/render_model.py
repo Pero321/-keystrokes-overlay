@@ -154,8 +154,24 @@ def rotate_point(p, rot):
     return (x+ox, y+oy, z+oz)
 
 # ------------------------------------------------------------------ render
-def render(model_id, out, size=512, yaw=-35.0, pitch=28.0, frame=0, bg=(0, 0, 0, 0)):
+def model_quads(model_id, frame=0):
+    """Flatten a model's elements into (corners, uvs, texture_id, shade) quads."""
     textures, elements = resolve_model(model_id)
+    quads = []
+    for el in elements:
+        x0, y0, z0 = el["from"]; x1, y1, z1 = el["to"]
+        rot = el.get("rotation")
+        for face, spec in el.get("faces", {}).items():
+            tex_id = deref(textures, spec.get("texture", ""))
+            if not tex_id:
+                continue
+            corners = [rotate_point(p, rot) for p in box_face(x0, y0, z0, x1, y1, z1, face)]
+            u0, v0, u1, v1 = spec.get("uv", [0, 0, 16, 16])
+            uvs = [(u0, v0), (u1, v0), (u1, v1), (u0, v1)]
+            quads.append((corners, uvs, tex_id, FACE_SHADE[face]))
+    return quads
+
+def rasterize(quads, out, size=512, yaw=-35.0, pitch=28.0, frame=0, bg=(0, 0, 0, 0)):
     ss = 3                                     # supersample factor
     W = size * ss
     buf = [[bg for _ in range(W)] for _ in range(W)]
@@ -170,19 +186,6 @@ def render(model_id, out, size=512, yaw=-35.0, pitch=28.0, frame=0, bg=(0, 0, 0,
         x, z = x*cy + z*sy_, -x*sy_ + z*cy
         y, z = y*cp - z*sp, y*sp + z*cp
         return (W/2 + x*scale, W/2 - y*scale, z)
-
-    quads = []
-    for el in elements:
-        x0, y0, z0 = el["from"]; x1, y1, z1 = el["to"]
-        rot = el.get("rotation")
-        for face, spec in el.get("faces", {}).items():
-            tex_id = deref(textures, spec.get("texture", ""))
-            if not tex_id:
-                continue
-            corners = [rotate_point(p, rot) for p in box_face(x0, y0, z0, x1, y1, z1, face)]
-            u0, v0, u1, v1 = spec.get("uv", [0, 0, 16, 16])
-            uvs = [(u0, v0), (u1, v0), (u1, v1), (u0, v1)]
-            quads.append((corners, uvs, tex_id, FACE_SHADE[face]))
 
     for corners, uvs, tex_id, shade in quads:
         tex = load_texture(tex_id, frame)
@@ -234,7 +237,10 @@ def render(model_id, out, size=512, yaw=-35.0, pitch=28.0, frame=0, bg=(0, 0, 0,
                 row.append((r//a, g//a, b//a, a//(ss*ss)))
         outpx.append(row)
     write_png(out, outpx)
-    print(f"rendered {model_id} -> {out} ({size}x{size}, {len(quads)} faces)")
+    print(f"rendered -> {out} ({size}x{size}, {len(quads)} faces)")
+
+def render(model_id, out, size=512, yaw=-35.0, pitch=28.0, frame=0, bg=(0, 0, 0, 0)):
+    rasterize(model_quads(model_id, frame), out, size, yaw, pitch, frame, bg)
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

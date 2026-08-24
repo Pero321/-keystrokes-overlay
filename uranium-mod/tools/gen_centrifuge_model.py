@@ -99,9 +99,34 @@ def build(on):
 
     return {"parent": "block/block", "textures": textures, "elements": elements}
 
-for on, name in ((False, "centrifuge"), (True, "centrifuge_on")):
+def build_static():
+    """Only the parts that never move. The drums, collars and arms are drawn by
+    CentrifugeBlockEntityRenderer, which can make them actual cylinders."""
+    full = build(False)
+    keep = [full["elements"][0], full["elements"][-1]]   # plinth and feed pipe
+    return {"parent": "block/block", "textures": full["textures"], "elements": keep}
+
+# the full model is what the item in your hand and in the inventory uses; it also
+# keeps the drum textures stitched into the block atlas
+outputs = {"centrifuge": build(False), "centrifuge_static": build_static()}
+for name, model in outputs.items():
     path = os.path.join(NS, "models", "block", f"{name}.json")
     with open(path, "w") as f:
-        json.dump(build(on), f, indent=2)
+        json.dump(model, f, indent=2)
         f.write("\n")
     print("wrote", os.path.relpath(path, NS))
+
+# every state renders the same static shell; the renderer handles lit vs idle
+rot = {"north": 0, "east": 90, "south": 180, "west": 270}
+variants = {}
+for facing, y in rot.items():
+    for lit in ("false", "true"):
+        v = {"model": "uraniummod:block/centrifuge_static"}
+        if y:
+            v["y"] = y
+        variants[f"facing={facing},lit={lit}"] = v
+bs = os.path.join(NS, "blockstates", "centrifuge.json")
+with open(bs, "w") as f:
+    json.dump({"variants": variants}, f, indent=2)
+    f.write("\n")
+print("wrote", os.path.relpath(bs, NS))

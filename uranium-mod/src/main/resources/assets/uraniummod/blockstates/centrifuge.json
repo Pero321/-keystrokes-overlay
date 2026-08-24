@@ -1,33 +1,33 @@
 {
   "variants": {
     "facing=north,lit=false": {
-      "model": "uraniummod:block/centrifuge"
+      "model": "uraniummod:block/centrifuge_static"
     },
     "facing=north,lit=true": {
-      "model": "uraniummod:block/centrifuge_on"
+      "model": "uraniummod:block/centrifuge_static"
     },
     "facing=east,lit=false": {
-      "model": "uraniummod:block/centrifuge",
+      "model": "uraniummod:block/centrifuge_static",
       "y": 90
     },
     "facing=east,lit=true": {
-      "model": "uraniummod:block/centrifuge_on",
+      "model": "uraniummod:block/centrifuge_static",
       "y": 90
     },
     "facing=south,lit=false": {
-      "model": "uraniummod:block/centrifuge",
+      "model": "uraniummod:block/centrifuge_static",
       "y": 180
     },
     "facing=south,lit=true": {
-      "model": "uraniummod:block/centrifuge_on",
+      "model": "uraniummod:block/centrifuge_static",
       "y": 180
     },
     "facing=west,lit=false": {
-      "model": "uraniummod:block/centrifuge",
+      "model": "uraniummod:block/centrifuge_static",
       "y": 270
     },
     "facing=west,lit=true": {
-      "model": "uraniummod:block/centrifuge_on",
+      "model": "uraniummod:block/centrifuge_static",
       "y": 270
     }
   }

@@ -4,7 +4,7 @@ Catches the failure mode you can't see without launching the game: a model
 pointing at a texture that isn't there, an unresolved #placeholder, or an
 animation strip whose height isn't a whole number of frames.
 """
-import json, os, struct, sys, zipfile
+import json, os, re, struct, sys, zipfile
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
                     "src", "main", "resources")
@@ -15,7 +15,9 @@ BUILTIN = {"builtin/generated", "builtin/entity", "minecraft:builtin/generated",
            "minecraft:builtin/entity"}
 
 errors = []
-checked = {"blockstates": 0, "models": 0, "textures": 0, "anim": 0}
+seen_textures = set()
+checked = {"blockstates": 0, "models": 0, "textures": 0, "anim": 0,
+           "java_textures": 0}
 
 vanilla = set()
 if os.path.exists(VANILLA):
@@ -94,6 +96,7 @@ def check_texture_file(ident, value, where):
         errors.append(f"{ident}: {where} -> missing vanilla texture {value}")
         return
     checked["textures"] += 1
+    seen_textures.add(value)
 
 def check_model(ident):
     textures, elements, chain = resolve(ident)
@@ -149,7 +152,49 @@ for dirpath, _, files in os.walk(tex_dir):
             else:
                 checked["anim"] += 1
 
+# Textures bound directly from Java (the block entity renderer) are invisible to
+# the model walk above, so a typo there would only show up as a missing-texture
+# checkerboard in game. Check those literals too.
+JAVA_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
+                         "src", "main", "java")
+lit_re = re.compile(r'"(textures/[A-Za-z0-9_/]+\.png)"')
+for dirpath, _, files in os.walk(JAVA_ROOT):
+    for f in files:
+        if not f.endswith(".java"):
+            continue
+        src = open(os.path.join(dirpath, f)).read()
+        for rel in lit_re.findall(src):
+            full = os.path.join(ROOT, "assets", NS, rel)
+            if os.path.exists(full):
+                checked["java_textures"] += 1
+            else:
+                errors.append(f"{f}: references missing texture {NS}:{rel}")
+
+# Report textures nothing points at any more. Not an error -- icon.png and the
+# like are referenced from fabric.mod.json -- but dead art quietly bloats the jar.
+referenced = set()
+for dirpath, _, files in os.walk(os.path.join(ROOT, "assets", NS, "textures")):
+    for f in files:
+        if f.endswith(".png"):
+            referenced.add(os.path.join(dirpath, f))
+used = set()
+for ident in sorted(seen_textures):
+    ns, rel = rel_path(ident, "textures", "png")
+    if ns == NS:
+        used.add(os.path.normpath(os.path.join(ROOT, rel)))
+for dirpath, _, files in os.walk(JAVA_ROOT):
+    for f in files:
+        if f.endswith(".java"):
+            for rel in lit_re.findall(open(os.path.join(dirpath, f)).read()):
+                used.add(os.path.normpath(os.path.join(ROOT, "assets", NS, rel)))
+unused = sorted(os.path.relpath(p2, ROOT) for p2 in
+                {os.path.normpath(x) for x in referenced} - used)
+
 print("checked: " + ", ".join(f"{v} {k}" for k, v in checked.items()))
+if unused:
+    print("\nunreferenced textures (not an error):")
+    for u in unused:
+        print("  -", u)
 if errors:
     print("\nPROBLEMS:")
     for e in dict.fromkeys(errors):

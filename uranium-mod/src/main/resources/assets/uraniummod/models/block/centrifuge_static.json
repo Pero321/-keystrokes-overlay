@@ -1,0 +1,148 @@
+{
+  "parent": "block/block",
+  "textures": {
+    "particle": "uraniummod:block/centrifuge_base",
+    "bottom": "uraniummod:block/centrifuge_bottom",
+    "base": "uraniummod:block/centrifuge_base",
+    "deck": "uraniummod:block/centrifuge_deck",
+    "drum": "uraniummod:block/centrifuge_drum",
+    "cap": "uraniummod:block/centrifuge_cap",
+    "drumtop": "uraniummod:block/centrifuge_drum_top",
+    "arm": "uraniummod:block/centrifuge_arm",
+    "pipe": "uraniummod:block/centrifuge_pipe"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        3,
+        16
+      ],
+      "faces": {
+        "down": {
+          "texture": "#bottom",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "cullface": "down"
+        },
+        "up": {
+          "texture": "#deck",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "north": {
+          "texture": "#base",
+          "uv": [
+            0,
+            6,
+            16,
+            9
+          ],
+          "cullface": "north"
+        },
+        "south": {
+          "texture": "#base",
+          "uv": [
+            0,
+            6,
+            16,
+            9
+          ],
+          "cullface": "south"
+        },
+        "east": {
+          "texture": "#base",
+          "uv": [
+            0,
+            6,
+            16,
+            9
+          ],
+          "cullface": "east"
+        },
+        "west": {
+          "texture": "#base",
+          "uv": [
+            0,
+            6,
+            16,
+            9
+          ],
+          "cullface": "west"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        3,
+        0.5
+      ],
+      "to": [
+        11,
+        5,
+        2.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#pipe",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#pipe",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "east": {
+          "texture": "#pipe",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "west": {
+          "texture": "#pipe",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "up": {
+          "texture": "#pipe",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
+      }
+    }
+  ]
+}

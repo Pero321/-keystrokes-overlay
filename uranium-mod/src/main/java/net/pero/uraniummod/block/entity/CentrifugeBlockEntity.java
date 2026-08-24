@@ -9,6 +9,9 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventories;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.network.listener.ClientPlayPacketListener;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.screen.PropertyDelegate;
 import net.minecraft.screen.ScreenHandler;
@@ -16,6 +19,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
 import net.pero.uraniummod.block.CentrifugeBlock;
@@ -50,9 +54,19 @@ public class CentrifugeBlockEntity extends BlockEntity
 	public static final int PROP_OPERATING_HEAT = 4;
 	public static final int PROP_COUNT = 5;
 
+	/** Radians per tick the drums turn at full heat. */
+	public static final float MAX_SPIN_SPEED = 0.42f;
+	/** Heat is pushed to nearby clients in buckets this size, not every tick. */
+	private static final int HEAT_SYNC_BUCKET = 100;
+
 	private final DefaultedList<ItemStack> inventory = DefaultedList.ofSize(2, ItemStack.EMPTY);
 	private int heat = 0;
 	private int progress = 0;
+	private int lastSyncedBucket = -1;
+
+	// client-only: the renderer integrates these so the drums spin up and coast
+	// down smoothly instead of snapping between speeds
+	private float spin, prevSpin, spinSpeed, armPhase, prevArmPhase;
 
 	private final PropertyDelegate propertyDelegate = new PropertyDelegate() {
 		@Override
@@ -100,6 +114,7 @@ public class CentrifugeBlockEntity extends BlockEntity
 
 	public static void tick(World world, BlockPos pos, BlockState state, CentrifugeBlockEntity be) {
 		if (world.isClient()) {
+			be.clientTick(state);
 			return;
 		}
 
@@ -138,6 +153,55 @@ public class CentrifugeBlockEntity extends BlockEntity
 		if (dirty) {
 			markDirty(world, pos, state);
 		}
+
+		// push heat to nearby clients occasionally so the renderer can match the
+		// drum speed to it; every tick would be a packet per tick per machine
+		int bucket = be.heat / HEAT_SYNC_BUCKET;
+		if (bucket != be.lastSyncedBucket) {
+			be.lastSyncedBucket = bucket;
+			world.updateListeners(pos, state, state, Block.NOTIFY_LISTENERS);
+		}
+	}
+
+	private void clientTick(BlockState state) {
+		float target = state.get(CentrifugeBlock.LIT)
+				? MAX_SPIN_SPEED * Math.min(1.0f, heat / (float) MAX_HEAT)
+				: 0.0f;
+		spinSpeed += (target - spinSpeed) * 0.05f;
+
+		prevSpin = spin;
+		prevArmPhase = armPhase;
+		spin += spinSpeed;
+		armPhase += spinSpeed * 0.6f;
+
+		// keep both ends of the interpolation in the same turn, or the lerp
+		// spins the drum backwards through a whole revolution on wrap
+		if (spin > MathHelper.TAU) {
+			spin -= MathHelper.TAU;
+			prevSpin -= MathHelper.TAU;
+		}
+		if (armPhase > MathHelper.TAU) {
+			armPhase -= MathHelper.TAU;
+			prevArmPhase -= MathHelper.TAU;
+		}
+	}
+
+	public float getSpin(float tickDelta) {
+		return MathHelper.lerp(tickDelta, prevSpin, spin);
+	}
+
+	public float getArmPhase(float tickDelta) {
+		return MathHelper.lerp(tickDelta, prevArmPhase, armPhase);
+	}
+
+	@Override
+	public Packet<ClientPlayPacketListener> toUpdatePacket() {
+		return BlockEntityUpdateS2CPacket.create(this);
+	}
+
+	@Override
+	public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registries) {
+		return createNbt(registries);
 	}
 
 	public boolean isHotEnough() {

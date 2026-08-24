@@ -192,28 +192,76 @@ INGOT_MASK = [
 ]
 inside = lambda m, x, y: 0 <= x < N and 0 <= y < N and m[y][x] == "x"
 
+def in_poly(px_, py_, poly):
+    inside = False
+    n = len(poly)
+    for i in range(n):
+        x0, y0 = poly[i]
+        x1, y1 = poly[(i + 1) % n]
+        if (y0 > py_) != (y1 > py_):
+            if px_ < x0 + (py_ - y0) * (x1 - x0) / (y1 - y0):
+                inside = not inside
+    return inside
+
+def round_corners(px):
+    """Drop pixels sticking out on two sides, so the silhouette reads as cast."""
+    out = [row[:] for row in px]
+    for y in range(N):
+        for x in range(N):
+            if not px[y][x][3]:
+                continue
+            empty = sum(1 for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))
+                        if not (0 <= x + dx < N and 0 <= y + dy < N and px[y + dy][x + dx][3]))
+            if empty >= 2:
+                out[y][x] = (0, 0, 0, 0)
+    return out
+
+def outline_shape(px, col):
+    out = [row[:] for row in px]
+    for y in range(N):
+        for x in range(N):
+            if px[y][x][3]:
+                continue
+            if any(0 <= x + dx < N and 0 <= y + dy < N and px[y + dy][x + dx][3]
+                   for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                out[y][x] = col
+    return out
+
+# A cast bar seen from just above the front: a lit top face over a shaded
+# front, rather than the flat lozenge vanilla uses.
+INGOT_TOP = [(3.9, 4.5), (14.3, 4.5), (13.3, 7.7), (2.9, 7.7)]
+INGOT_FRONT = [(2.9, 7.7), (13.3, 7.7), (12.5, 11.8), (3.7, 11.8)]
+
 def make_ingot(path, seed=6):
     r = Rng(seed)
     px = [[(0, 0, 0, 0) for _ in range(N)] for _ in range(N)]
     for y in range(N):
         for x in range(N):
-            if not inside(INGOT_MASK, x, y):
-                if any(inside(INGOT_MASK, x + dx, y + dy)
-                       for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
-                    px[y][x] = URA_O
-                continue
-            s = x + y                       # runs across the ingot's thickness
-            if s <= 12:   c = URA_B
-            elif s <= 14: c = URA_L
-            elif s <= 17: c = URA_M
-            elif s <= 19: c = mix(URA_M, URA_D, 0.6)
-            else:         c = URA_D
-            if not inside(INGOT_MASK, x, y + 1) or not inside(INGOT_MASK, x + 1, y):
-                c = mix(c, URA_O, 0.4)
-            if not inside(INGOT_MASK, x, y - 1):
-                c = mix(c, URA_S, 0.55)
-            px[y][x] = q(sh(c, int((r.f() - 0.5) * 8)))
-    write_png(path, px)
+            if in_poly(x + 0.5, y + 0.5, INGOT_FRONT):
+                px[y][x] = q(sh(URA_M, int((r.f() - 0.5) * 10)))
+    for y in range(N):
+        for x in range(N):
+            if in_poly(x + 0.5, y + 0.5, INGOT_TOP):
+                px[y][x] = q(sh(URA_L, int((r.f() - 0.5) * 10)))
+    for y in range(N):
+        for x in range(N):
+            if in_poly(x + 0.5, y + 0.5, INGOT_TOP):
+                if not in_poly(x + 0.5, y - 1.0, INGOT_TOP):
+                    px[y][x] = q(mix(URA_B, URA_S, 0.6))       # lit top edge
+                elif not in_poly(x - 1.0, y + 0.5, INGOT_TOP):
+                    px[y][x] = q(URA_B)
+                elif not in_poly(x + 1.0, y + 0.5, INGOT_TOP):
+                    px[y][x] = q(mix(URA_L, URA_M, 0.5))
+            elif in_poly(x + 0.5, y + 0.5, INGOT_FRONT):
+                if not in_poly(x + 0.5, y - 1.0, INGOT_FRONT):
+                    px[y][x] = q(mix(URA_M, URA_L, 0.7))       # catch under the lip
+                elif not in_poly(x + 0.5, y + 1.0, INGOT_FRONT):
+                    px[y][x] = q(URA_D)
+                elif not in_poly(x + 1.0, y + 0.5, INGOT_FRONT):
+                    px[y][x] = q(mix(URA_M, URA_D, 0.65))
+                elif not in_poly(x - 1.0, y + 0.5, INGOT_FRONT):
+                    px[y][x] = q(mix(URA_M, URA_L, 0.35))
+    write_png(path, outline_shape(round_corners(px), URA_O))
 
 # ---------------------------------------------------------------- storage blocks
 CHUNKS = [(3.4, 3.2, 3.5), (11.2, 2.8, 3.2), (7.6, 9.4, 3.6),
@@ -256,8 +304,8 @@ def make_metal_block(path, seed=4):
     write_png(path, px)
 
 # ---------------------------------------------------------------- centrifuge
-# Dark machine casing with amber hazard accents. The glow stays uranium-green:
-# that light is the material being refined, not part of the machine's livery.
+# Modelled on Factorio's centrifuge: three cream enrichment drums with green
+# uranium showing through, dark caps, gold arms, on a hazard-striped plinth.
 MET_O = (26, 27, 30, 255)
 MET_D = (56, 58, 63, 255)
 MET_M = (94, 98, 105, 255)
@@ -268,6 +316,17 @@ AMB_D = (128, 68, 10, 255)
 AMB_M = (206, 122, 22, 255)
 AMB_L = (255, 166, 46, 255)
 AMB_H = (255, 216, 136, 255)
+
+GOLD_D = (122, 88, 16, 255)
+GOLD_M = (196, 152, 32, 255)
+GOLD_L = (238, 202, 74, 255)
+GOLD_H = (255, 238, 160, 255)
+
+CREAM_H = (236, 234, 222, 255)
+CREAM_L = (208, 206, 193, 255)
+CREAM_M = (170, 169, 158, 255)
+CREAM_D = (120, 120, 112, 255)
+CREAM_O = (78, 79, 74, 255)
 
 TAU = math.pi * 2.0
 
@@ -281,8 +340,6 @@ def frame_edges(px, hi=MET_L, lo=MET_D):
         px[i][0] = hi
         px[N - 1][i] = lo
         px[i][N - 1] = lo
-    px[0][N - 1] = MET_M
-    px[N - 1][0] = MET_M
 
 def bolts(px, coords=((2, 2), (13, 2), (2, 13), (13, 13))):
     for (bx, by) in coords:
@@ -290,178 +347,171 @@ def bolts(px, coords=((2, 2), (13, 2), (2, 13), (13, 13))):
         if by + 1 < N:
             px[by + 1][bx] = MET_O
 
-def make_centrifuge_bottom(path, seed=42):
-    px = plate(seed, MET_D, 10)
-    frame_edges(px, MET_M, MET_O)
-    bolts(px)
+def cylinder_shade(x, lit, mid, dark, edge):
+    """Left-to-right falloff that makes a flat face read as a round drum."""
+    t = abs(x + 0.5 - 8.0) / 8.0
+    if t < 0.28:
+        return mix(lit, mid, t / 0.28)
+    if t < 0.72:
+        return mix(mid, dark, (t - 0.28) / 0.44)
+    return mix(dark, edge, (t - 0.72) / 0.28)
+
+# green uranium showing through the drum casing
+DRUM_SPOTS = [(3, 5), (6, 4), (10, 5), (12, 7), (4, 9), (8, 8),
+              (11, 11), (5, 12), (9, 13), (2, 8), (13, 10), (7, 11)]
+
+def _drum(seed, glow):
+    """glow: 0 = inert, 1 = fully lit. Body texture for one enrichment drum."""
+    r = Rng(seed)
+    px = []
+    for y in range(N):
+        row = []
+        for x in range(N):
+            c = cylinder_shade(x, CREAM_H, CREAM_L, CREAM_M, CREAM_D)
+            row.append(q(sh(c, int((r.f() - 0.5) * 8))))
+        px.append(row)
+    for y in (0, 1, 14, 15):                              # steel rings
+        for x in range(N):
+            base = MET_L if y in (0, 14) else MET_D
+            px[y][x] = q(mix(base, MET_O, abs(x + 0.5 - 8.0) / 16.0))
+    for (sx, sy) in DRUM_SPOTS:                           # uranium showing through
+        dim = mix(URA_D, URA_M, 0.5)
+        bright = mix(URA_B, URA_S, 0.35)
+        c = mix(dim, bright, glow)
+        shade = 1.0 - abs(sx + 0.5 - 8.0) / 22.0          # keep the round falloff
+        c = (cl(c[0] * shade), cl(c[1] * shade), cl(c[2] * shade), 255)
+        px[sy][sx] = q(c)
+        if sx + 1 < N:
+            px[sy][sx + 1] = q(mix(c, CREAM_M, 0.45))
+        if sy + 1 < 14:
+            px[sy + 1][sx] = q(mix(c, CREAM_M, 0.55))
+    return px
+
+def make_drum(path, seed=61):
+    write_png(path, _drum(seed, 0.15))
+
+def make_drum_on(path, frames=8, seed=61):
+    out = []
+    for f in range(frames):
+        glow = 0.45 + 0.55 * (0.5 - 0.5 * math.cos(TAU * f / frames))
+        out.extend(_drum(seed, glow))
+    write_png(path, out)
+
+def make_drum_cap(path, seed=62):
+    """Dark collar around the top of a drum."""
+    px = []
+    r = Rng(seed)
+    for y in range(N):
+        row = []
+        for x in range(N):
+            c = cylinder_shade(x, MET_L, MET_M, MET_D, MET_O)
+            row.append(q(sh(c, int((r.f() - 0.5) * 8))))
+        px.append(row)
+    for x in range(N):
+        px[0][x] = q(mix(MET_H, MET_M, abs(x + 0.5 - 8.0) / 12.0))
+        px[3][x] = q(mix(GOLD_M, GOLD_D, abs(x + 0.5 - 8.0) / 10.0))
+        px[N - 1][x] = MET_O
+    for x in range(1, N, 4):                              # collar bolts
+        px[6][x] = MET_H
+        px[7][x] = MET_O
     write_png(path, px)
 
-def make_centrifuge_base(path, seed=45):
+def _drum_top(seed, glow):
+    """Looking down on a drum: a rimmed port with the charge inside."""
+    px = plate(seed, MET_D, 8)
+    for y in range(N):
+        for x in range(N):
+            d = math.hypot(x + 0.5 - 8.0, y + 0.5 - 8.0)
+            if d > 7.4:
+                continue
+            if d > 6.4:
+                px[y][x] = MET_L
+            elif d > 5.6:
+                px[y][x] = MET_O
+            elif d > 3.2:
+                px[y][x] = q(mix(MET_M, MET_D, (d - 3.2) / 2.4))
+            elif d > 2.4:
+                px[y][x] = MET_O
+            else:
+                hot = mix(URA_S, URA_B, d / 2.4)
+                cold = mix(URA_D, URA_O, d / 2.4)
+                px[y][x] = q(mix(cold, hot, glow))
+    for (bx, by) in ((3, 3), (12, 3), (3, 12), (12, 12)):
+        px[by][bx] = MET_H
+    return px
+
+def make_drum_top(path, seed=63):
+    write_png(path, _drum_top(seed, 0.12))
+
+def make_drum_top_on(path, frames=8, seed=63):
+    out = []
+    for f in range(frames):
+        glow = 0.45 + 0.55 * (0.5 - 0.5 * math.cos(TAU * f / frames))
+        out.extend(_drum_top(seed, glow))
+    write_png(path, out)
+
+def make_deck(path, seed=64):
+    """Plinth top: tread plate the drums stand on."""
+    px = plate(seed, MET_D, 10)
+    for y in range(2, N, 4):
+        for x in range(N):
+            px[y][x] = q(sh(MET_M, -6))
+            if x % 2 == 0 and y + 1 < N:
+                px[y + 1][x] = MET_O
+    frame_edges(px, MET_M, MET_O)
+    write_png(path, px)
+
+def make_base(path, seed=45):
     """Plinth skirt: amber/black hazard stripes."""
     r = Rng(seed)
     px = []
     for y in range(N):
         row = []
         for x in range(N):
-            band = ((x + y) // 3) % 2
-            c = AMB_M if band == 0 else MET_O
+            c = AMB_M if ((x + y) // 3) % 2 == 0 else MET_O
             row.append(q(sh(c, int((r.f() - 0.5) * 12))))
         px.append(row)
-    for i in range(N):                       # capping rails top and bottom
+    for i in range(N):
         px[0][i] = MET_L
         px[1][i] = MET_D
         px[N - 1][i] = MET_O
         px[N - 2][i] = MET_D
     write_png(path, px)
 
-def make_centrifuge_post(path, seed=46):
-    """Corner column: a bolted strut with a lit edge."""
+def make_bottom(path, seed=42):
     px = plate(seed, MET_D, 10)
-    for y in range(N):
-        px[y][0] = MET_L
-        px[y][1] = MET_M
-        px[y][N - 1] = MET_O
-        px[y][N - 2] = MET_D
-    for y in (2, 7, 12):
-        px[y][4] = MET_H
-        px[y + 1][4] = MET_O
-        px[y][11] = MET_H
-        px[y + 1][11] = MET_O
-    write_png(path, px)
-
-def make_centrifuge_collar(path, seed=47):
-    """Housing band under the rotor: vent slits between amber rails."""
-    px = plate(seed, MET_M, 12)
-    for i in range(N):
-        px[0][i] = MET_H
-        px[1][i] = AMB_M
-        px[N - 1][i] = MET_O
-        px[N - 2][i] = MET_D
-    for x in range(2, 14, 3):
-        for y in range(4, 12):
-            px[y][x] = MET_O
-            px[y][x + 1] = MET_D
-    write_png(path, px)
-
-def _side_base(seed):
-    px = plate(seed, MET_M, 12)
-    frame_edges(px)
-    for y in range(4, 12):                   # recessed service panel
-        for x in range(3, 13):
-            px[y][x] = q(sh(MET_D, 4))
-    for x in range(3, 13):
-        px[3][x] = MET_O
-        px[12][x] = MET_H
-    for y in range(3, 13):
-        px[y][2] = MET_O
-        px[y][13] = MET_H
-    for x in range(4, 12, 2):                # louvre slits
-        for y in range(6, 10):
-            px[y][x] = MET_O
+    frame_edges(px, MET_M, MET_O)
     bolts(px)
-    return px
-
-def make_centrifuge_side(path, seed=41):
-    px = _side_base(seed)
-    px[5][11] = MET_O                        # status lamp, dark
     write_png(path, px)
 
-def make_centrifuge_side_on(path, frames=4, seed=41):
-    """Status lamp blinks while running."""
-    out = []
-    for f in range(frames):
-        px = _side_base(seed)
-        lit = f % frames
-        glow = [URA_B, URA_L, URA_M, URA_L][lit]
-        px[5][11] = glow
-        px[4][11] = q(mix(MET_D, glow, 0.45))
-        px[6][11] = q(mix(MET_D, glow, 0.45))
-        out.extend(px)
-    write_png(path, out)
-
-def _front_base(seed):
-    px = plate(seed, MET_M, 12)
-    frame_edges(px)
-    for x in range(2, 14):                   # amber bezel around the window
-        px[2][x] = AMB_M
-        px[13][x] = AMB_D
-    for y in range(2, 14):
-        px[y][2] = AMB_M
-        px[y][13] = AMB_D
-    for y in range(3, 13):
-        for x in range(3, 13):
-            px[y][x] = MET_O
-    bolts(px)
-    return px
-
-def make_centrifuge_front(path, seed=44):
-    px = _front_base(seed)
-    r = Rng(seed + 7)
-    for y in range(4, 12):                   # cold glass
-        for x in range(4, 12):
-            d = math.hypot(x - 7.5, y - 7.5)
-            c = mix(URA_D, URA_O, min(1.0, d / 4.0))
-            px[y][x] = q(sh(c, int((r.f() - 0.5) * 8)))
-    write_png(path, px)
-
-def make_centrifuge_front_on(path, frames=8, seed=44):
-    """Window pulses as the charge spins up."""
-    out = []
-    for f in range(frames):
-        px = _front_base(seed)
-        r = Rng(seed + 100 + f)
-        pulse = 0.55 + 0.45 * math.sin(TAU * f / frames)
-        for y in range(4, 12):
-            for x in range(4, 12):
-                d = math.hypot(x - 7.5, y - 7.5)
-                core = max(0.0, 1.0 - d / 4.2)
-                t = min(1.0, core * (0.55 + 0.75 * pulse))
-                c = mix(URA_D, URA_S, t)
-                c = mix(c, URA_B, 0.35)
-                px[y][x] = q(sh(c, int((r.f() - 0.5) * 12)))
-        out.extend(px)
-    write_png(path, out)
-
-def _rotor_frame(theta, on, seed):
-    """One frame of the turbine seen from above."""
+def make_arm(path, seed=65):
+    """Gold hydraulic arm, shaded round across its width."""
     r = Rng(seed)
-    px = plate(seed, MET_M, 10)
-    frame_edges(px)
-    bolts(px)
+    px = []
     for y in range(N):
+        row = []
         for x in range(N):
-            dx, dy = x + 0.5 - 8.0, y + 0.5 - 8.0
-            rad = math.hypot(dx, dy)
-            if rad > 7.3:
-                continue                                  # casing corners
-            if rad > 6.3:
-                px[y][x] = AMB_M if ((x + y) // 2) % 2 == 0 else MET_L
-                continue
-            if rad > 5.9:
-                px[y][x] = MET_O
-                continue
-            if rad <= 1.7:                                # hub
-                px[y][x] = MET_H if rad < 0.9 else MET_L
-                continue
-            ang = (math.atan2(dy, dx) + theta) % (TAU / 3.0)
-            span = TAU / 3.0
-            if ang < span * 0.34:
-                c = MET_H if on else MET_L                # blade face
-            elif ang < span * 0.44:
-                c = MET_D                                 # blade edge
-            else:
-                c = mix(URA_M, URA_B, 0.4) if on else MET_O
-            px[y][x] = q(sh(c, int((r.f() - 0.5) * 8)))
-    return px
+            c = cylinder_shade(x, GOLD_H, GOLD_L, GOLD_M, GOLD_D)
+            row.append(q(sh(c, int((r.f() - 0.5) * 8))))
+        px.append(row)
+    for y in (2, 7, 12):                                  # segment collars
+        for x in range(N):
+            px[y][x] = q(mix(MET_D, MET_O, abs(x + 0.5 - 8.0) / 12.0))
+    write_png(path, px)
 
-def make_centrifuge_top(path, seed=43):
-    write_png(path, _rotor_frame(0.0, False, seed))
-
-def make_centrifuge_top_on(path, frames=8, seed=43):
-    out = []
-    for f in range(frames):
-        out.extend(_rotor_frame(TAU / 3.0 * f / frames, True, seed))
-    write_png(path, out)
+def make_pipe(path, seed=66):
+    px = []
+    r = Rng(seed)
+    for y in range(N):
+        row = []
+        for x in range(N):
+            c = cylinder_shade(x, MET_L, MET_M, MET_D, MET_O)
+            row.append(q(sh(c, int((r.f() - 0.5) * 6))))
+        px.append(row)
+    for y in range(0, N, 3):                              # corrugations
+        for x in range(N):
+            px[y][x] = q(sh(px[y][x], -22))
+    write_png(path, px)
 
 def write_mcmeta(path, frametime, interpolate=False):
     body = {"animation": {"frametime": frametime}}
@@ -623,20 +673,19 @@ make_raw_uranium(f"{RES}/textures/item/raw_uranium.png")
 make_ingot(f"{RES}/textures/item/uranium_ingot.png")
 
 B = f"{RES}/textures/block"
-make_centrifuge_bottom(f"{B}/centrifuge_bottom.png")
-make_centrifuge_base(f"{B}/centrifuge_base.png")
-make_centrifuge_post(f"{B}/centrifuge_post.png")
-make_centrifuge_collar(f"{B}/centrifuge_collar.png")
-make_centrifuge_side(f"{B}/centrifuge_side.png")
-make_centrifuge_side_on(f"{B}/centrifuge_side_on.png")
-make_centrifuge_front(f"{B}/centrifuge_front.png")
-make_centrifuge_front_on(f"{B}/centrifuge_front_on.png")
-make_centrifuge_top(f"{B}/centrifuge_top.png")
-make_centrifuge_top_on(f"{B}/centrifuge_top_on.png")
+make_drum(f"{B}/centrifuge_drum.png")
+make_drum_on(f"{B}/centrifuge_drum_on.png")
+make_drum_cap(f"{B}/centrifuge_cap.png")
+make_drum_top(f"{B}/centrifuge_drum_top.png")
+make_drum_top_on(f"{B}/centrifuge_drum_top_on.png")
+make_deck(f"{B}/centrifuge_deck.png")
+make_base(f"{B}/centrifuge_base.png")
+make_bottom(f"{B}/centrifuge_bottom.png")
+make_arm(f"{B}/centrifuge_arm.png")
+make_pipe(f"{B}/centrifuge_pipe.png")
 
-write_mcmeta(f"{B}/centrifuge_top_on.png.mcmeta", 2)
-write_mcmeta(f"{B}/centrifuge_front_on.png.mcmeta", 3, interpolate=True)
-write_mcmeta(f"{B}/centrifuge_side_on.png.mcmeta", 5, interpolate=True)
+write_mcmeta(f"{B}/centrifuge_drum_on.png.mcmeta", 3, interpolate=True)
+write_mcmeta(f"{B}/centrifuge_drum_top_on.png.mcmeta", 3, interpolate=True)
 
 make_gui(f"{RES}/textures/gui/centrifuge.png")
 

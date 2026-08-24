@@ -18,3 +18,7 @@ remappedSrc/
 .settings/
 .classpath
 .project
+
+# Python
+__pycache__/
+*.pyc

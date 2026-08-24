@@ -7,9 +7,8 @@ OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from preview_textures import read_png, write_png
 
-STRIPS = ["textures/block/centrifuge_top_on.png",
-          "textures/block/centrifuge_front_on.png",
-          "textures/block/centrifuge_side_on.png"]
+STRIPS = ["textures/block/centrifuge_drum_on.png",
+          "textures/block/centrifuge_drum_top_on.png"]
 S, PAD = 9, 7
 rows = []
 for name in STRIPS:

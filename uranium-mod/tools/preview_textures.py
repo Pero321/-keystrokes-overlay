@@ -43,9 +43,9 @@ if __name__ == "__main__":
         "textures/block/uranium_ore.png", "textures/block/deepslate_uranium_ore.png",
         "textures/item/raw_uranium.png", "textures/item/uranium_ingot.png",
         "textures/block/raw_uranium_block.png", "textures/block/uranium_block.png",
-        "textures/block/centrifuge_front.png", "textures/block/centrifuge_side.png",
-        "textures/block/centrifuge_top.png", "textures/block/centrifuge_base.png",
-        "textures/block/centrifuge_post.png", "textures/block/centrifuge_collar.png",
+        "textures/block/centrifuge_drum.png", "textures/block/centrifuge_cap.png",
+        "textures/block/centrifuge_drum_top.png", "textures/block/centrifuge_base.png",
+        "textures/block/centrifuge_deck.png", "textures/block/centrifuge_arm.png",
     ]
     S, PAD, COLS = 11, 8, 5
     tiles = [read_png(os.path.join(RES, n)) for n in NAMES]

@@ -99,19 +99,21 @@ figure (`Heat: 740 / 1000`) and whether it is up to temperature.
 
 ### The block
 
-The centrifuge is not a plain cube. Its model is a hazard-striped plinth, four
-corner struts framing a recessed body, and a rotor housing on top, so it reads
-as machinery from across the room.
+The centrifuge is modelled on Factorio's: three cream enrichment drums with
+uranium showing through the casing, dark caps with a glowing port, gold arms
+leaning out over each drum, and a feed pipe across the front, all sitting on a
+hazard-striped plinth.
 
-While it is running, three of its textures animate:
+![centrifuge](docs/centrifuge.png)
+
+*Idle, running, and seen from the front.* The drums and their caps animate
+while it runs:
 
 ![centrifuge animation](docs/animation.png)
 
-*Top: the rotor, 8 frames. Middle: the window pulsing as the charge spins up.
-Bottom: the status lamp.* The rotor's 8 frames cover 120° of a 3-blade rotor, so
-the loop is seamless. All three only play in the `lit=true` state — a cold
-centrifuge is completely still, which makes "is it actually running?" answerable
-at a glance.
+Both strips only play in the `lit=true` state — an idle centrifuge has dark
+ports and dull green casing, so "is it actually running?" is answerable at a
+glance.
 
 The centrifuge does nothing on its own. **Give it a redstone signal** and it
 starts heating up; cut the signal and it cools back down. It only refines while
@@ -197,11 +199,20 @@ Helper scripts alongside it:
 | `tools/preview_textures.py` | Contact sheet of the block and item textures |
 | `tools/preview_animation.py` | Lays the animation frames out side by side |
 | `tools/preview_gui.py` | Mocks up the live centrifuge screen from the GUI sheet |
+| `tools/render_model.py` | Software-renders a block model to a PNG, so geometry can be checked without launching the game |
+| `tools/gen_centrifuge_model.py` | Builds the centrifuge's multi-element model |
 | `tools/verify_worldgen.py` | Counts placed blocks in a generated world |
 
 `validate_assets.py` is worth running after any model or texture change — a
 model pointing at a missing texture otherwise only shows up as an untextured
-block once you're in-game.
+block once you're in-game. `render_model.py` is the other half of that: it
+parses a model's parent chain, resolves its textures and rasterises the
+elements with Minecraft's own directional face shading, so the geometry can be
+eyeballed without a client:
+
+```bash
+python3 tools/render_model.py uraniummod:block/centrifuge_on out.png --frame 4
+```
 
 ## Layout
 

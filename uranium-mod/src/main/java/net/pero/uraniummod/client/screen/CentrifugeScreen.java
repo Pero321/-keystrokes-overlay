@@ -15,7 +15,7 @@ public class CentrifugeScreen extends HandledScreen<CentrifugeScreenHandler> {
 			Identifier.of(UraniumMod.MOD_ID, "textures/gui/centrifuge.png");
 
 	// must match the layout written by tools/gen_textures.py
-	private static final int HEAT_X = 26, HEAT_Y = 19, HEAT_W = 14, HEAT_H = 52;
+	private static final int HEAT_X = 25, HEAT_Y = 17, HEAT_W = 12, HEAT_H = 52;
 	private static final int ARROW_X = 79, ARROW_Y = 34, ARROW_W = 24, ARROW_H = 17;
 	private static final int HEAT_U = 200, ARROW_U = 176;
 
@@ -23,11 +23,22 @@ public class CentrifugeScreen extends HandledScreen<CentrifugeScreenHandler> {
 		super(handler, inventory, title);
 	}
 
+	// the console panel is dark, so the default near-black label colour is unreadable
+	private static final int TITLE_COLOUR = 0xF0E4CE;
+	private static final int LABEL_COLOUR = 0xB9B2A5;
+
 	@Override
 	protected void init() {
 		super.init();
-		titleY = 6;
+		titleY = 5;
 		playerInventoryTitleY = backgroundHeight - 94;
+	}
+
+	@Override
+	protected void drawForeground(DrawContext context, int mouseX, int mouseY) {
+		context.drawText(textRenderer, title, titleX, titleY, TITLE_COLOUR, false);
+		context.drawText(textRenderer, playerInventoryTitle,
+				playerInventoryTitleX, playerInventoryTitleY, LABEL_COLOUR, false);
 	}
 
 	@Override

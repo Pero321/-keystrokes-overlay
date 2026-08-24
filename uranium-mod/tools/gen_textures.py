@@ -5,7 +5,7 @@
 The uranium palette is deliberately a saturated Factorio-style green; change the
 URA_* constants below to retune the whole set at once.
 """
-import math, os, struct, zlib
+import json, math, os, struct, zlib
 
 RES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                    "..", "src", "main", "resources", "assets", "uraniummod")
@@ -256,188 +256,361 @@ def make_metal_block(path, seed=4):
     write_png(path, px)
 
 # ---------------------------------------------------------------- centrifuge
-def bevel(px, lo, hi):
-    """Plate edge: lighter top/left, darker bottom/right."""
-    for i in range(N):
-        px[0][i] = hi; px[i][0] = hi
-        px[N - 1][i] = lo; px[i][N - 1] = lo
-    px[0][N - 1] = MET_M; px[N - 1][0] = MET_M
+# Dark machine casing with amber hazard accents. The glow stays uranium-green:
+# that light is the material being refined, not part of the machine's livery.
+MET_O = (26, 27, 30, 255)
+MET_D = (56, 58, 63, 255)
+MET_M = (94, 98, 105, 255)
+MET_L = (136, 141, 150, 255)
+MET_H = (178, 184, 194, 255)
 
-def rivets(px, col=MET_H, shadow=MET_D):
-    for (rx, ry) in ((2, 2), (13, 2), (2, 13), (13, 13)):
-        px[ry][rx] = col
-        px[ry + 1][rx] = shadow
+AMB_D = (128, 68, 10, 255)
+AMB_M = (206, 122, 22, 255)
+AMB_L = (255, 166, 46, 255)
+AMB_H = (255, 216, 136, 255)
 
-def plate(seed):
+TAU = math.pi * 2.0
+
+def plate(seed, base=MET_M, spread=12):
     r = Rng(seed)
-    px = [[q(sh(MET_M, int((r.f() - 0.5) * 14))) for _ in range(N)] for _ in range(N)]
-    bevel(px, MET_D, MET_L)
+    return [[q(sh(base, int((r.f() - 0.5) * spread))) for _ in range(N)] for _ in range(N)]
+
+def frame_edges(px, hi=MET_L, lo=MET_D):
+    for i in range(N):
+        px[0][i] = hi
+        px[i][0] = hi
+        px[N - 1][i] = lo
+        px[i][N - 1] = lo
+    px[0][N - 1] = MET_M
+    px[N - 1][0] = MET_M
+
+def bolts(px, coords=((2, 2), (13, 2), (2, 13), (13, 13))):
+    for (bx, by) in coords:
+        px[by][bx] = MET_H
+        if by + 1 < N:
+            px[by + 1][bx] = MET_O
+
+def make_centrifuge_bottom(path, seed=42):
+    px = plate(seed, MET_D, 10)
+    frame_edges(px, MET_M, MET_O)
+    bolts(px)
+    write_png(path, px)
+
+def make_centrifuge_base(path, seed=45):
+    """Plinth skirt: amber/black hazard stripes."""
+    r = Rng(seed)
+    px = []
+    for y in range(N):
+        row = []
+        for x in range(N):
+            band = ((x + y) // 3) % 2
+            c = AMB_M if band == 0 else MET_O
+            row.append(q(sh(c, int((r.f() - 0.5) * 12))))
+        px.append(row)
+    for i in range(N):                       # capping rails top and bottom
+        px[0][i] = MET_L
+        px[1][i] = MET_D
+        px[N - 1][i] = MET_O
+        px[N - 2][i] = MET_D
+    write_png(path, px)
+
+def make_centrifuge_post(path, seed=46):
+    """Corner column: a bolted strut with a lit edge."""
+    px = plate(seed, MET_D, 10)
+    for y in range(N):
+        px[y][0] = MET_L
+        px[y][1] = MET_M
+        px[y][N - 1] = MET_O
+        px[y][N - 2] = MET_D
+    for y in (2, 7, 12):
+        px[y][4] = MET_H
+        px[y + 1][4] = MET_O
+        px[y][11] = MET_H
+        px[y + 1][11] = MET_O
+    write_png(path, px)
+
+def make_centrifuge_collar(path, seed=47):
+    """Housing band under the rotor: vent slits between amber rails."""
+    px = plate(seed, MET_M, 12)
+    for i in range(N):
+        px[0][i] = MET_H
+        px[1][i] = AMB_M
+        px[N - 1][i] = MET_O
+        px[N - 2][i] = MET_D
+    for x in range(2, 14, 3):
+        for y in range(4, 12):
+            px[y][x] = MET_O
+            px[y][x + 1] = MET_D
+    write_png(path, px)
+
+def _side_base(seed):
+    px = plate(seed, MET_M, 12)
+    frame_edges(px)
+    for y in range(4, 12):                   # recessed service panel
+        for x in range(3, 13):
+            px[y][x] = q(sh(MET_D, 4))
+    for x in range(3, 13):
+        px[3][x] = MET_O
+        px[12][x] = MET_H
+    for y in range(3, 13):
+        px[y][2] = MET_O
+        px[y][13] = MET_H
+    for x in range(4, 12, 2):                # louvre slits
+        for y in range(6, 10):
+            px[y][x] = MET_O
+    bolts(px)
     return px
 
 def make_centrifuge_side(path, seed=41):
-    px = plate(seed)
-    for y in range(5, 12):                      # vent slots
-        for x in (5, 6, 9, 10):
-            px[y][x] = MET_D if x in (5, 9) else MET_O
-    for x in range(4, 12):
-        px[4][x] = MET_L
-        px[12][x] = MET_D
-    rivets(px)
+    px = _side_base(seed)
+    px[5][11] = MET_O                        # status lamp, dark
     write_png(path, px)
 
-def make_centrifuge_bottom(path, seed=42):
-    px = plate(seed)
-    rivets(px)
+def make_centrifuge_side_on(path, frames=4, seed=41):
+    """Status lamp blinks while running."""
+    out = []
+    for f in range(frames):
+        px = _side_base(seed)
+        lit = f % frames
+        glow = [URA_B, URA_L, URA_M, URA_L][lit]
+        px[5][11] = glow
+        px[4][11] = q(mix(MET_D, glow, 0.45))
+        px[6][11] = q(mix(MET_D, glow, 0.45))
+        out.extend(px)
+    write_png(path, out)
+
+def _front_base(seed):
+    px = plate(seed, MET_M, 12)
+    frame_edges(px)
+    for x in range(2, 14):                   # amber bezel around the window
+        px[2][x] = AMB_M
+        px[13][x] = AMB_D
+    for y in range(2, 14):
+        px[y][2] = AMB_M
+        px[y][13] = AMB_D
+    for y in range(3, 13):
+        for x in range(3, 13):
+            px[y][x] = MET_O
+    bolts(px)
+    return px
+
+def make_centrifuge_front(path, seed=44):
+    px = _front_base(seed)
+    r = Rng(seed + 7)
+    for y in range(4, 12):                   # cold glass
+        for x in range(4, 12):
+            d = math.hypot(x - 7.5, y - 7.5)
+            c = mix(URA_D, URA_O, min(1.0, d / 4.0))
+            px[y][x] = q(sh(c, int((r.f() - 0.5) * 8)))
     write_png(path, px)
 
-def make_centrifuge_top(path, seed=43):
-    px = plate(seed)
-    cx = cy = 7.5
+def make_centrifuge_front_on(path, frames=8, seed=44):
+    """Window pulses as the charge spins up."""
+    out = []
+    for f in range(frames):
+        px = _front_base(seed)
+        r = Rng(seed + 100 + f)
+        pulse = 0.55 + 0.45 * math.sin(TAU * f / frames)
+        for y in range(4, 12):
+            for x in range(4, 12):
+                d = math.hypot(x - 7.5, y - 7.5)
+                core = max(0.0, 1.0 - d / 4.2)
+                t = min(1.0, core * (0.55 + 0.75 * pulse))
+                c = mix(URA_D, URA_S, t)
+                c = mix(c, URA_B, 0.35)
+                px[y][x] = q(sh(c, int((r.f() - 0.5) * 12)))
+        out.extend(px)
+    write_png(path, out)
+
+def _rotor_frame(theta, on, seed):
+    """One frame of the turbine seen from above."""
+    r = Rng(seed)
+    px = plate(seed, MET_M, 10)
+    frame_edges(px)
+    bolts(px)
     for y in range(N):
         for x in range(N):
-            d = math.hypot(x + 0.5 - cx, y + 0.5 - cy)
-            if d < 2.0:   px[y][x] = q(mix(URA_M, URA_L, 0.4))   # rotor core
-            elif d < 3.0: px[y][x] = MET_O
-            elif d < 4.2: px[y][x] = q(sh(MET_D, 6))
-            elif d < 5.0: px[y][x] = MET_L
-    rivets(px)
-    write_png(path, px)
+            dx, dy = x + 0.5 - 8.0, y + 0.5 - 8.0
+            rad = math.hypot(dx, dy)
+            if rad > 7.3:
+                continue                                  # casing corners
+            if rad > 6.3:
+                px[y][x] = AMB_M if ((x + y) // 2) % 2 == 0 else MET_L
+                continue
+            if rad > 5.9:
+                px[y][x] = MET_O
+                continue
+            if rad <= 1.7:                                # hub
+                px[y][x] = MET_H if rad < 0.9 else MET_L
+                continue
+            ang = (math.atan2(dy, dx) + theta) % (TAU / 3.0)
+            span = TAU / 3.0
+            if ang < span * 0.34:
+                c = MET_H if on else MET_L                # blade face
+            elif ang < span * 0.44:
+                c = MET_D                                 # blade edge
+            else:
+                c = mix(URA_M, URA_B, 0.4) if on else MET_O
+            px[y][x] = q(sh(c, int((r.f() - 0.5) * 8)))
+    return px
 
-def make_centrifuge_front(path, on, seed=44):
-    px = plate(seed)
-    for y in range(4, 12):                      # recessed window
-        for x in range(4, 12):
-            px[y][x] = MET_O
-    glow_a = URA_B if on else URA_D
-    glow_b = URA_S if on else mix(URA_D, URA_O, 0.5)
-    r = Rng(seed + (1 if on else 0))
-    for y in range(5, 11):
-        for x in range(5, 11):
-            d = math.hypot(x - 7.5, y - 7.5)
-            t = max(0.0, 1.0 - d / 3.4)
-            c = mix(glow_a, glow_b, t)
-            px[y][x] = q(sh(c, int((r.f() - 0.5) * (18 if on else 8))))
-    for x in range(4, 12):                      # window frame
-        px[3][x] = MET_L; px[12][x] = MET_D
-    for y in range(4, 12):
-        px[y][3] = MET_L; px[y][12] = MET_D
-    rivets(px)
-    write_png(path, px)
+def make_centrifuge_top(path, seed=43):
+    write_png(path, _rotor_frame(0.0, False, seed))
+
+def make_centrifuge_top_on(path, frames=8, seed=43):
+    out = []
+    for f in range(frames):
+        out.extend(_rotor_frame(TAU / 3.0 * f / frames, True, seed))
+    write_png(path, out)
+
+def write_mcmeta(path, frametime, interpolate=False):
+    body = {"animation": {"frametime": frametime}}
+    if interpolate:
+        body["animation"]["interpolate"] = True
+    with open(path, "w") as f:
+        json.dump(body, f, indent=2)
+        f.write("\n")
+    print("wrote", os.path.relpath(path, RES))
 
 # ---------------------------------------------------------------- gui sheet
 GW, GH = 256, 256
 PANEL_W, PANEL_H = 176, 166
-C_BG   = (198, 198, 198, 255)
-C_HI   = (255, 255, 255, 255)
-C_LO   = (85, 85, 85, 255)
-C_SLOT = (139, 139, 139, 255)
-C_SLOT_HI = (255, 255, 255, 255)
-C_SLOT_LO = (55, 55, 55, 255)
 
-HEAT_X, HEAT_Y, HEAT_W, HEAT_H = 26, 19, 14, 52
+# Factorio-ish console palette
+P_BG    = (49, 48, 45, 255)
+P_SUNK  = (36, 35, 33, 255)
+P_RAISE = (66, 64, 60, 255)
+P_HI    = (112, 109, 102, 255)
+P_LO    = (22, 21, 20, 255)
+SLOT_BG = (33, 32, 30, 255)
+
+HEAT_X, HEAT_Y, HEAT_W, HEAT_H = 25, 17, 12, 52
 ARROW_X, ARROW_Y, ARROW_W, ARROW_H = 79, 34, 24, 17
-THRESHOLD = 0.60                      # matches OPERATING_HEAT / MAX_HEAT in Java
+THRESHOLD = 0.60          # keep in sync with OPERATING_HEAT / MAX_HEAT in Java
 
-def gui_slot(px, sx, sy):
-    """Draw a standard 16x16 inventory slot with its 1px recessed border."""
-    for y in range(sy, sy + 16):
-        for x in range(sx, sx + 16):
-            px[y][x] = C_SLOT
+def rect(px, x0, y0, x1, y1, c):
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            px[y][x] = c
+
+def bevel_rect(px, x0, y0, x1, y1, hi, lo):
+    for x in range(x0, x1):
+        px[y0][x] = hi
+        px[y1 - 1][x] = lo
+    for y in range(y0, y1):
+        px[y][x0] = hi
+        px[y][x1 - 1] = lo
+
+def sunken(px, x0, y0, x1, y1, fill=P_SUNK):
+    rect(px, x0, y0, x1, y1, fill)
+    bevel_rect(px, x0, y0, x1, y1, P_LO, P_HI)
+
+def machine_slot(px, sx, sy, accent=AMB_M):
+    """16x16 slot with a dark well and an amber corner accent."""
+    rect(px, sx, sy, sx + 16, sy + 16, SLOT_BG)
     for x in range(sx - 1, sx + 17):
-        px[sy - 1][x] = C_SLOT_LO
-        px[sy + 16][x] = C_SLOT_HI
+        px[sy - 1][x] = P_LO
+        px[sy + 16][x] = P_HI
     for y in range(sy - 1, sy + 17):
-        px[y][sx - 1] = C_SLOT_LO
-        px[y][sx + 16] = C_SLOT_HI
-    px[sy - 1][sx + 16] = C_BG
-    px[sy + 16][sx - 1] = C_BG
+        px[y][sx - 1] = P_LO
+        px[y][sx + 16] = P_HI
+    for d in range(3):
+        px[sy - 1][sx + d] = accent
+        px[sy + d][sx - 1] = accent
+        px[sy + 16][sx + 15 - d] = accent
+        px[sy + 15 - d][sx + 16] = accent
+
+def inv_slot(px, sx, sy):
+    rect(px, sx, sy, sx + 16, sy + 16, SLOT_BG)
+    for x in range(sx - 1, sx + 17):
+        px[sy - 1][x] = P_LO
+        px[sy + 16][x] = P_HI
+    for y in range(sy - 1, sy + 17):
+        px[y][sx - 1] = P_LO
+        px[y][sx + 16] = P_HI
 
 def heat_ramp(t):
-    """0 = cold green, 1 = white-hot. Reads as 'warming up'."""
-    if t < 0.5:  return mix(URA_D, URA_B, t / 0.5)
-    if t < 0.8:  return mix(URA_B, (245, 226, 96, 255), (t - 0.5) / 0.3)
-    return mix((245, 226, 96, 255), (255, 246, 214, 255), (t - 0.8) / 0.2)
+    """0 = cold, 1 = white hot, through amber."""
+    if t < 0.45:
+        return mix(AMB_D, AMB_M, t / 0.45)
+    if t < 0.80:
+        return mix(AMB_M, AMB_L, (t - 0.45) / 0.35)
+    return mix(AMB_L, AMB_H, (t - 0.80) / 0.20)
 
 def make_gui(path):
     px = [[(0, 0, 0, 0) for _ in range(GW)] for _ in range(GH)]
-    for y in range(PANEL_H):
-        for x in range(PANEL_W):
-            px[y][x] = C_BG
-    for x in range(PANEL_W):
-        px[0][x] = C_HI; px[PANEL_H - 1][x] = C_LO
-    for y in range(PANEL_H):
-        px[y][0] = C_HI; px[y][PANEL_W - 1] = C_LO
+    rect(px, 0, 0, PANEL_W, PANEL_H, P_BG)
+    bevel_rect(px, 0, 0, PANEL_W, PANEL_H, P_HI, P_LO)
 
-    gui_slot(px, 56, 35)                                   # input
-    gui_slot(px, 116, 35)                                  # output
-    for row in range(3):                                   # player inventory
+    # title bar with an amber rule under it
+    rect(px, 4, 4, PANEL_W - 4, 15, P_RAISE)
+    bevel_rect(px, 4, 4, PANEL_W - 4, 15, P_HI, P_LO)
+    rect(px, 5, 15, PANEL_W - 5, 16, AMB_M)
+
+    # recessed machine bay
+    sunken(px, 6, 18, PANEL_W - 6, 70)
+
+    machine_slot(px, 56, 35)
+    machine_slot(px, 116, 35)
+    for row in range(3):
         for col in range(9):
-            gui_slot(px, 8 + col * 18, 84 + row * 18)
-    for col in range(9):                                   # hotbar
-        gui_slot(px, 8 + col * 18, 142)
+            inv_slot(px, 8 + col * 18, 84 + row * 18)
+    for col in range(9):
+        inv_slot(px, 8 + col * 18, 142)
 
-    # recessed heat gauge well
-    for y in range(HEAT_Y, HEAT_Y + HEAT_H):
-        for x in range(HEAT_X, HEAT_X + HEAT_W):
-            px[y][x] = (58, 58, 58, 255)
-    for x in range(HEAT_X - 1, HEAT_X + HEAT_W + 1):
-        px[HEAT_Y - 1][x] = C_SLOT_LO
-        px[HEAT_Y + HEAT_H][x] = C_SLOT_HI
-    for y in range(HEAT_Y - 1, HEAT_Y + HEAT_H + 1):
-        px[y][HEAT_X - 1] = C_SLOT_LO
-        px[y][HEAT_X + HEAT_W] = C_SLOT_HI
-
-    # threshold notch, so the player can see the heat they're waiting for
+    # heat gauge well
+    sunken(px, HEAT_X, HEAT_Y, HEAT_X + HEAT_W, HEAT_Y + HEAT_H, (20, 19, 18, 255))
+    for i in range(1, 5):                                   # tick marks
+        ty = HEAT_Y + HEAT_H - int(HEAT_H * i / 5.0)
+        for x in range(HEAT_X + HEAT_W, HEAT_X + HEAT_W + 2):
+            px[ty][x] = (96, 93, 87, 255)
+    # threshold marker: the temperature the player is waiting for
     ty = HEAT_Y + HEAT_H - int(HEAT_H * THRESHOLD)
-    for x in range(HEAT_X + HEAT_W + 1, HEAT_X + HEAT_W + 4):
-        px[ty][x] = (60, 60, 60, 255)
-    px[ty - 1][HEAT_X + HEAT_W + 1] = (140, 140, 140, 255)
-    px[ty + 1][HEAT_X + HEAT_W + 1] = (140, 140, 140, 255)
+    for k in range(4):
+        for d in range(k + 1):
+            yy = ty - d
+            if HEAT_Y <= yy < HEAT_Y + HEAT_H + 2:
+                px[yy][HEAT_X + HEAT_W + 1 + k] = AMB_L
+            yy = ty + d
+            if HEAT_Y <= yy < HEAT_Y + HEAT_H + 2:
+                px[yy][HEAT_X + HEAT_W + 1 + k] = AMB_L
+    for x in range(HEAT_X, HEAT_X + HEAT_W):                # dashed line at threshold
+        if (x - HEAT_X) % 2 == 0:
+            px[ty][x] = AMB_D
 
-    # empty progress arrow, drawn dim into the panel
-    def arrow(ox, oy, fill, outline):
-        for i in range(ARROW_H):
-            half = abs(i - 8)
-            if i < 3 or i > 13:
-                continue
-            if 5 <= i <= 11:
-                span = range(0, 16)
-            else:
-                span = range(0, 16)
-            for j in span:
-                px[oy + i][ox + j] = fill
-        for i in range(ARROW_H):                     # head
-            half = abs(i - 8)
-            w = 8 - half
-            if w <= 0:
-                continue
-            for j in range(16, 16 + w):
-                if j < ARROW_W:
-                    px[oy + i][ox + j] = fill
-    arrow(ARROW_X, ARROW_Y, (172, 172, 172, 255), None)
-
-    # ---- overlay sprites, sampled by the screen at draw time ----
-    # filled progress arrow at (176, 0)
-    for i in range(ARROW_H):
-        for j in range(ARROW_W):
-            px[i][176 + j] = (0, 0, 0, 0)
-    def filled(ox, oy, col):
+    # empty progress arrow, etched into the bay
+    def arrow_shape(ox, oy, col):
         for i in range(3, 14):
             for j in range(0, 16):
                 px[oy + i][ox + j] = col
         for i in range(ARROW_H):
             w = 8 - abs(i - 8)
-            for j in range(16, 16 + max(0, w)):
-                if j < ARROW_W:
-                    px[oy + i][ox + j] = col
-    filled(176, 0, (126, 226, 106, 255))
+            for j in range(16, min(ARROW_W, 16 + max(0, w))):
+                px[oy + i][ox + j] = col
+    arrow_shape(ARROW_X, ARROW_Y, (28, 27, 26, 255))
 
-    # heat fill at (200, 0), 14 x 52, bottom of the sprite = cold
+    # ---- overlay sprites sampled by the screen at draw time ----
+    filled = [[(0, 0, 0, 0) for _ in range(GW)] for _ in range(GH)]
+    def arrow_fill(ox, oy, col):
+        for i in range(3, 14):
+            for j in range(0, 16):
+                px[oy + i][ox + j] = col
+        for i in range(ARROW_H):
+            w = 8 - abs(i - 8)
+            for j in range(16, min(ARROW_W, 16 + max(0, w))):
+                px[oy + i][ox + j] = col
+    arrow_fill(176, 0, AMB_L)
+    for i in range(ARROW_H):                                # brighten the leading edge
+        w = 8 - abs(i - 8)
+        j = 15 + max(0, w)
+        if j < ARROW_W:
+            px[i][176 + j] = AMB_H
+
     for i in range(HEAT_H):
         t = (HEAT_H - 1 - i) / (HEAT_H - 1)
         c = heat_ramp(t)
         for j in range(HEAT_W):
-            edge = 0.75 if (j == 0 or j == HEAT_W - 1) else 1.0
+            edge = 0.72 if (j == 0 or j == HEAT_W - 1) else 1.0
             px[i][200 + j] = (cl(c[0] * edge), cl(c[1] * edge), cl(c[2] * edge), 255)
     write_png(path, px)
 
@@ -453,11 +626,22 @@ make_metal_block(f"{RES}/textures/block/uranium_block.png")
 make_raw_uranium(f"{RES}/textures/item/raw_uranium.png")
 make_ingot(f"{RES}/textures/item/uranium_ingot.png")
 
-make_centrifuge_side(f"{RES}/textures/block/centrifuge_side.png")
-make_centrifuge_top(f"{RES}/textures/block/centrifuge_top.png")
-make_centrifuge_bottom(f"{RES}/textures/block/centrifuge_bottom.png")
-make_centrifuge_front(f"{RES}/textures/block/centrifuge_front.png", on=False)
-make_centrifuge_front(f"{RES}/textures/block/centrifuge_front_on.png", on=True)
+B = f"{RES}/textures/block"
+make_centrifuge_bottom(f"{B}/centrifuge_bottom.png")
+make_centrifuge_base(f"{B}/centrifuge_base.png")
+make_centrifuge_post(f"{B}/centrifuge_post.png")
+make_centrifuge_collar(f"{B}/centrifuge_collar.png")
+make_centrifuge_side(f"{B}/centrifuge_side.png")
+make_centrifuge_side_on(f"{B}/centrifuge_side_on.png")
+make_centrifuge_front(f"{B}/centrifuge_front.png")
+make_centrifuge_front_on(f"{B}/centrifuge_front_on.png")
+make_centrifuge_top(f"{B}/centrifuge_top.png")
+make_centrifuge_top_on(f"{B}/centrifuge_top_on.png")
+
+write_mcmeta(f"{B}/centrifuge_top_on.png.mcmeta", 2)
+write_mcmeta(f"{B}/centrifuge_front_on.png.mcmeta", 3, interpolate=True)
+write_mcmeta(f"{B}/centrifuge_side_on.png.mcmeta", 5, interpolate=True)
+
 make_gui(f"{RES}/textures/gui/centrifuge.png")
 
 _cap = []

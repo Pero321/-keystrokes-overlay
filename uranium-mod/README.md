@@ -88,8 +88,26 @@ temperature you're waiting for.
 ![centrifuge screen](docs/gui.png)
 
 *Left: cold, holding raw uranium, doing nothing. Right: up to temperature and
-refining.* Hovering the gauge shows the exact percentage and whether it is hot
-enough yet.
+refining.* The gauge is marked with tick marks, a dashed line at the operating
+temperature and an amber arrow pointing at it, so the target is visible rather
+than guessed. Hovering the gauge shows the exact percentage and whether it is
+hot enough yet.
+
+### The block
+
+The centrifuge is not a plain cube. Its model is a hazard-striped plinth, four
+corner struts framing a recessed body, and a rotor housing on top, so it reads
+as machinery from across the room.
+
+While it is running, three of its textures animate:
+
+![centrifuge animation](docs/animation.png)
+
+*Top: the rotor, 8 frames. Middle: the window pulsing as the charge spins up.
+Bottom: the status lamp.* The rotor's 8 frames cover 120° of a 3-blade rotor, so
+the loop is seamless. All three only play in the `lit=true` state — a cold
+centrifuge is completely still, which makes "is it actually running?" answerable
+at a glance.
 
 The centrifuge does nothing on its own. **Give it a redstone signal** and it
 starts heating up; cut the signal and it cools back down. It only refines while
@@ -165,6 +183,21 @@ regenerate everything:
 ```bash
 python3 tools/gen_textures.py
 ```
+
+Helper scripts alongside it:
+
+| Script | What it does |
+| --- | --- |
+| `tools/gen_textures.py` | Generates every texture, the animation strips and the GUI sheet |
+| `tools/validate_assets.py` | Walks blockstates → models → textures and fails if any reference doesn't resolve, or an animation strip isn't a whole number of frames |
+| `tools/preview_textures.py` | Contact sheet of the block and item textures |
+| `tools/preview_animation.py` | Lays the animation frames out side by side |
+| `tools/preview_gui.py` | Mocks up the live centrifuge screen from the GUI sheet |
+| `tools/verify_worldgen.py` | Counts placed blocks in a generated world |
+
+`validate_assets.py` is worth running after any model or texture change — a
+model pointing at a missing texture otherwise only shows up as an untextured
+block once you're in-game.
 
 ## Layout
 

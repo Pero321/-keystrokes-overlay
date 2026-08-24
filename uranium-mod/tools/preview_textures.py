@@ -38,27 +38,29 @@ def write_png(path, px):
         + ch(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
         + ch(b"IDAT", zlib.compress(raw, 9)) + ch(b"IEND", b""))
 
-NAMES = [
-    "textures/block/uranium_ore.png", "textures/block/deepslate_uranium_ore.png",
-    "textures/item/raw_uranium.png", "textures/item/uranium_ingot.png",
-    "textures/block/raw_uranium_block.png", "textures/block/uranium_block.png",
-    "textures/block/centrifuge_front.png", "textures/block/centrifuge_front_on.png",
-    "textures/block/centrifuge_side.png", "textures/block/centrifuge_top.png",
-]
-S, PAD, COLS = 11, 8, 5
-tiles = [read_png(os.path.join(RES, n)) for n in NAMES]
-rows = (len(tiles) + COLS - 1) // COLS
-W = PAD + COLS * (16*S + PAD)
-H = PAD + rows * (16*S + PAD)
-canvas = [[(26, 26, 30, 255) for _ in range(W)] for _ in range(H)]
-for i, t in enumerate(tiles):
-    ox = PAD + (i % COLS) * (16*S + PAD)
-    oy = PAD + (i // COLS) * (16*S + PAD)
-    for y in range(16*S):
-        for x in range(16*S):
-            p = t[y//S][x//S]
-            if len(p) == 4 and p[3] == 0:
-                p = (58, 58, 64, 255) if ((x//8 + y//8) % 2 == 0) else (46, 46, 52, 255)
-            canvas[oy+y][ox+x] = p[:3] + (255,)
-write_png(OUT, canvas)
-print(f"wrote {OUT} ({W}x{H})")
+if __name__ == "__main__":
+    NAMES = [
+        "textures/block/uranium_ore.png", "textures/block/deepslate_uranium_ore.png",
+        "textures/item/raw_uranium.png", "textures/item/uranium_ingot.png",
+        "textures/block/raw_uranium_block.png", "textures/block/uranium_block.png",
+        "textures/block/centrifuge_front.png", "textures/block/centrifuge_side.png",
+        "textures/block/centrifuge_top.png", "textures/block/centrifuge_base.png",
+        "textures/block/centrifuge_post.png", "textures/block/centrifuge_collar.png",
+    ]
+    S, PAD, COLS = 11, 8, 5
+    tiles = [read_png(os.path.join(RES, n)) for n in NAMES]
+    rows = (len(tiles) + COLS - 1) // COLS
+    W = PAD + COLS * (16*S + PAD)
+    H = PAD + rows * (16*S + PAD)
+    canvas = [[(26, 26, 30, 255) for _ in range(W)] for _ in range(H)]
+    for i, t in enumerate(tiles):
+        ox = PAD + (i % COLS) * (16*S + PAD)
+        oy = PAD + (i // COLS) * (16*S + PAD)
+        for y in range(16*S):
+            for x in range(16*S):
+                p = t[y//S][x//S]
+                if len(p) == 4 and p[3] == 0:
+                    p = (58, 58, 64, 255) if ((x//8 + y//8) % 2 == 0) else (46, 46, 52, 255)
+                canvas[oy+y][ox+x] = p[:3] + (255,)
+    write_png(OUT, canvas)
+    print(f"wrote {OUT} ({W}x{H})")

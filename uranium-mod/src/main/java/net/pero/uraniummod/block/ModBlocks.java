@@ -56,6 +56,10 @@ public class ModBlocks {
 					.requiresTool()
 					.sounds(BlockSoundGroup.METAL)
 					.luminance(state -> state.get(CentrifugeBlock.LIT) ? 8 : 0)
+					// the model is a framed body inset from the block edges, so
+					// neighbouring blocks have to keep drawing the faces they'd
+					// otherwise cull against a solid cube
+					.nonOpaque()
 	);
 
 	/**

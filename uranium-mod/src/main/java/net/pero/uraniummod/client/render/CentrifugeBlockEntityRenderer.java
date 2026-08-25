@@ -42,8 +42,6 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_deck.png");
 	private static final Identifier BASE =
 			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_base.png");
-	private static final Identifier FOOT =
-			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_foot.png");
 
 	private static final float PX = 1.0f / 16.0f;
 	private static final int SIDES = 32;
@@ -58,15 +56,14 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 	// z and 0 to 32 in y, centred on the controller block's middle.
 	private static final float CX = 8.0f, CZ = 8.0f;
 	private static final float FOOT_MIN = -16.0f, FOOT_MAX = 32.0f;
-	private static final float COLLAR_R = 21.0f, BODY_R = 19.0f, GLOW_R = 19.4f;
-	private static final float HOUSING_R = 13.0f, SHAFT_R = 3.0f;
-	private static final float Y_PLINTH = 6.0f;      // top of the platform deck
-	private static final float Y_FOOT = 7.5f;        // corner anchor blocks
-	private static final float Y_BODY0 = 10.0f, Y_BODY1 = 23.0f;
-	private static final float Y_UPPER = 27.0f, Y_HOUSING = 30.0f, Y_SHAFT = 32.0f;
+	private static final float COLLAR_R = 23.0f, BODY_R = 21.5f, GLOW_R = 21.9f;
+	private static final float HOUSING_R = 14.0f, SHAFT_R = 3.0f;
+	private static final float Y_PLINTH = 3.0f;      // top of the foundation rim
+	private static final float Y_BODY0 = 7.0f, Y_BODY1 = 22.0f;
+	private static final float Y_UPPER = 26.0f, Y_HOUSING = 29.0f, Y_SHAFT = 32.0f;
 
-	/** The skirt texture's design lives in rows 5..11; see tools/gen_textures.py. */
-	private static final float SKIRT_V0 = 5.0f / 16.0f, SKIRT_V1 = 11.0f / 16.0f;
+	/** The skirt texture's design lives in rows 6..9; see tools/gen_textures.py. */
+	private static final float SKIRT_V0 = 6.0f / 16.0f, SKIRT_V1 = 9.0f / 16.0f;
 
 	public CentrifugeBlockEntityRenderer(BlockEntityRendererFactory.Context ctx) {
 	}
@@ -88,10 +85,10 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 		// ends it. Holding several buffers at once and interleaving writes throws
 		// "Not building!" on the first write to a buffer that was already flushed.
 
-		{   // Platform. Drawn as one box per block rather than a single 48px-wide
-			// one: stretching a 16px texture over the whole span is the same
-			// smearing that spoiled the earlier drum. The sides sample the
-			// skirt band, the top gets tread plate.
+		{   // Foundation rim. The drum nearly fills the 3x3, so only a narrow
+			// band of this is ever visible; it reads as a shadow line under the
+			// machine rather than as a slab the machine is standing on. Drawn
+			// per block so the texture is not stretched across the whole span.
 			VertexConsumer skirt = vertexConsumers.getBuffer(
 					RenderLayer.getEntityCutoutNoCull(BASE));
 			for (int dx = -1; dx <= 1; dx++) {
@@ -105,7 +102,7 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 			}
 		}
 
-		{   // tread-plate deck on top of the platform
+		{   // foundation top, visible only as a ring around the drum
 			VertexConsumer deck = vertexConsumers.getBuffer(
 					RenderLayer.getEntityCutoutNoCull(DECK));
 			for (int dx = -1; dx <= 1; dx++) {
@@ -114,20 +111,6 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 					float z0 = (dz * 16.0f - CZ) * PX;
 					boxTop(matrices, deck, x0, Y_PLINTH * PX, z0,
 							x0 + 16.0f * PX, z0 + 16.0f * PX, light, overlay);
-				}
-			}
-		}
-
-		{   // anchor blocks at the four corners, so the base is not a bare slab
-			VertexConsumer foot = vertexConsumers.getBuffer(
-					RenderLayer.getEntityCutoutNoCull(FOOT));
-			for (int sx = -1; sx <= 1; sx += 2) {
-				for (int sz = -1; sz <= 1; sz += 2) {
-					float cx = sx * 19.0f - CX;
-					float cz = sz * 19.0f - CZ;
-					box(matrices, foot, (cx - 5.0f) * PX, 0.0f, (cz - 5.0f) * PX,
-							(cx + 5.0f) * PX, Y_FOOT * PX, (cz + 5.0f) * PX,
-							light, overlay, 0xFFFFFFFF);
 				}
 			}
 		}

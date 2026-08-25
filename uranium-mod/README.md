@@ -111,10 +111,10 @@ dark and the port is dead. Everything lit is an **emissive** pass drawn at full
 lightmap brightness, so it glows in an unlit cave rather than merely being green,
 and its brightness follows the machine's heat.
 
-It stands on a machined platform rather than a bare slab: a tread-plate deck
-over a dark steel skirt carrying one amber warning band, with bolted anchor
-blocks at the four corners. The skirt samples a six-pixel band of its texture
-so the design lands at the right density on a face only six pixels tall.
+The drum is sized to nearly fill the 3×3 footprint, so the foundation shows only
+as a narrow dark rim — a shadow line under the machine rather than a slab it is
+standing on. Earlier versions decorated that slab; the fix was to stop having
+one worth decorating.
 
 Only the controller carries the renderer; the other seventeen blocks are
 invisible filler that forward interaction, hoppers and breaking to it, and store

@@ -536,21 +536,18 @@ def make_shaft(path, seed=74):
 # texture. Those rows carry the whole design; the rest is never seen.
 SKIRT_V0, SKIRT_V1 = 5, 11
 
+# The skirt is only 3 block-pixels tall, so the renderer samples rows 6..9.
+SKIRT_V0, SKIRT_V1 = 6, 9
+
 def make_base(path, seed=45):
-    """Platform skirt: dark steel with a single amber warning band and rivets,
-    rather than an edge-to-edge hazard pattern, which read as noise at size."""
+    """Foundation rim. Deliberately plain: the drum nearly fills the footprint,
+    so this is a shadow line under it, not a decorated slab."""
     r = Rng(seed)
-    px = [[q(sh(STEEL_D, int((r.f() - 0.5) * 8))) for _ in range(N)] for _ in range(N)]
+    px = [[q(sh(STEEL_O, int((r.f() - 0.5) * 6))) for _ in range(N)] for _ in range(N)]
     for x in range(N):
-        px[SKIRT_V0][x] = STEEL_H                       # lit top lip
-        px[SKIRT_V0 + 1][x] = STEEL_L
-        px[SKIRT_V1 - 1][x] = STEEL_O                   # shadow under the lip
-    for x in range(N):                                  # amber warning band
-        band = AMB_M if (x // 2) % 2 == 0 else mix(AMB_M, AMB_D, 0.55)
-        px[SKIRT_V0 + 2][x] = q(band)
-        px[SKIRT_V0 + 3][x] = q(mix(band, STEEL_O, 0.35))
-    for x in (2, 8, 13):                                # rivets on the lower rail
-        px[SKIRT_V1 - 2][x] = STEEL_H
+        px[SKIRT_V0][x] = q(mix(STEEL_M, STEEL_D, 0.4))     # lit top edge
+        px[SKIRT_V0 + 1][x] = q(STEEL_D)
+        px[SKIRT_V1 - 1][x] = q(mix(STEEL_O, (0, 0, 0, 255), 0.35))
     write_png(path, px)
 
 def make_foot(path, seed=46):
@@ -570,26 +567,14 @@ def make_foot(path, seed=46):
     write_png(path, px)
 
 def make_deck(path, seed=64):
-    """Platform top: diamond tread plate with a raised border."""
+    """Foundation top. Only a narrow ring of it is ever visible around the drum."""
     r = Rng(seed)
     px = [[q(sh(STEEL_D, int((r.f() - 0.5) * 8))) for _ in range(N)] for _ in range(N)]
-    for y in range(2, N - 2):                           # diamond tread pattern
-        for x in range(2, N - 2):
-            # kept low-contrast: at three blocks across, a loud tread pattern
-            # turns into visual noise
-            if (x + y) % 6 in (0, 1) or (x - y) % 6 in (0, 1):
-                px[y][x] = q(mix(STEEL_D, STEEL_M, 0.7))
-            elif (x + y) % 6 == 2 or (x - y) % 6 == 2:
-                px[y][x] = q(mix(STEEL_D, STEEL_O, 0.5))
-    for i in range(N):                                  # raised border
-        px[0][i] = STEEL_L
-        px[i][0] = STEEL_L
-        px[1][i] = q(mix(STEEL_M, STEEL_D, 0.5))
-        px[i][1] = q(mix(STEEL_M, STEEL_D, 0.5))
-        px[N - 1][i] = STEEL_O
-        px[i][N - 1] = STEEL_O
-        px[N - 2][i] = q(STEEL_D)
-        px[i][N - 2] = q(STEEL_D)
+    for i in range(N):
+        px[0][i] = q(STEEL_M)
+        px[i][0] = q(STEEL_M)
+        px[N - 1][i] = q(STEEL_O)
+        px[i][N - 1] = q(STEEL_O)
     write_png(path, px)
 
 def make_bottom(path, seed=42):
@@ -761,7 +746,6 @@ make_rotor_top(f"{B}/centrifuge_rotor_top.png")
 make_rotor_top_glow(f"{B}/centrifuge_rotor_top_glow.png")
 make_shaft(f"{B}/centrifuge_shaft.png")
 make_base(f"{B}/centrifuge_base.png")
-make_foot(f"{B}/centrifuge_foot.png")
 make_deck(f"{B}/centrifuge_deck.png")
 make_bottom(f"{B}/centrifuge_bottom.png")
 

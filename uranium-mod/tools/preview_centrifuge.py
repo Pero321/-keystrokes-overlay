@@ -16,9 +16,10 @@ CX = CZ = 8.0
 FOOT_MIN, FOOT_MAX = -16.0, 32.0
 COLLAR_R, BODY_R, GLOW_R = 21.0, 19.0, 19.4
 HOUSING_R, SHAFT_R = 13.0, 3.0
-Y_PLINTH = 5.0
-Y_BODY0, Y_BODY1 = 9.0, 22.0
-Y_UPPER, Y_HOUSING, Y_SHAFT = 26.0, 29.0, 32.0
+Y_PLINTH = 6.0
+Y_FOOT = 7.5
+Y_BODY0, Y_BODY1 = 10.0, 23.0
+Y_UPPER, Y_HOUSING, Y_SHAFT = 27.0, 30.0, 32.0
 V_LOWER = (0.0, 4.0 / 24.0 * 16)
 V_BODY = (4.0 / 24.0 * 16, 20.0 / 24.0 * 16)
 V_UPPER = (20.0 / 24.0 * 16, 16.0)
@@ -30,6 +31,8 @@ ROTOR_TOP = NS + "centrifuge_rotor_top"
 ROTOR_TOP_GLOW = NS + "centrifuge_rotor_top_glow"
 SHAFT = NS + "centrifuge_shaft"
 BASE = NS + "centrifuge_base"
+FOOT = NS + "centrifuge_foot"
+SKIRT_V = (5.0, 11.0)
 DECK = NS + "centrifuge_deck"
 
 def side_shade(nx):
@@ -75,12 +78,31 @@ def box(x0, y0, z0, x1, y1, z1, tex):
     uv = [(0,0),(16,0),(16,16),(0,16)]
     return [(c, uv, tex, sh) for c, sh in faces]
 
+def box_sides(x0, y0, z0, x1, y1, z1, tex, v0, v1):
+    faces = [
+        ([(x1,y1,z0),(x0,y1,z0),(x0,y0,z0),(x1,y0,z0)], 0.8),
+        ([(x0,y1,z1),(x1,y1,z1),(x1,y0,z1),(x0,y0,z1)], 0.8),
+        ([(x1,y1,z1),(x1,y1,z0),(x1,y0,z0),(x1,y0,z1)], 0.6),
+        ([(x0,y1,z0),(x0,y1,z1),(x0,y0,z1),(x0,y0,z0)], 0.6),
+    ]
+    uv = [(0,v0),(16,v0),(16,v1),(0,v1)]
+    return [(c, uv, tex, sh) for c, sh in faces]
+
+def box_top(x0, y, z0, x1, z1, tex):
+    return [([(x0,y,z0),(x1,y,z0),(x1,y,z1),(x0,y,z1)],
+             [(0,0),(16,0),(16,16),(0,16)], tex, 1.0)]
+
 def build(heat, spin):
     q = []
     for dx in (-1, 0, 1):
         for dz in (-1, 0, 1):
             x0, z0 = dx * 16.0, dz * 16.0
-            q += box(x0, 0.0, z0, x0 + 16.0, Y_PLINTH, z0 + 16.0, BASE)
+            q += box_sides(x0, 0.0, z0, x0 + 16.0, Y_PLINTH, z0 + 16.0, BASE, *SKIRT_V)
+            q += box_top(x0, Y_PLINTH, z0, x0 + 16.0, z0 + 16.0, DECK)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            fx, fz = sx * 19.0, sz * 19.0
+            q += box(fx - 5.0, 0.0, fz - 5.0, fx + 5.0, Y_FOOT, fz + 5.0, FOOT)
     q += cylinder(CX, CZ, COLLAR_R, Y_PLINTH, Y_BODY0, *V_LOWER, TOWER)
     q += cylinder(CX, CZ, COLLAR_R, Y_BODY1, Y_UPPER, *V_UPPER, TOWER)
     q += disc(CX, CZ, COLLAR_R, Y_UPPER, DECK)

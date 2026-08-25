@@ -532,32 +532,64 @@ def make_shaft(path, seed=74):
         px.append(row)
     write_png(path, px)
 
+# The skirt is 6 block-pixels tall, so the renderer samples rows 5..11 of this
+# texture. Those rows carry the whole design; the rest is never seen.
+SKIRT_V0, SKIRT_V1 = 5, 11
+
 def make_base(path, seed=45):
-    """Plinth skirt: amber/black hazard stripes."""
+    """Platform skirt: dark steel with a single amber warning band and rivets,
+    rather than an edge-to-edge hazard pattern, which read as noise at size."""
     r = Rng(seed)
-    px = [[q(sh(AMB_M if ((x + y) // 3) % 2 == 0 else STEEL_O,
-                int((r.f() - 0.5) * 12))) for x in range(N)] for y in range(N)]
+    px = [[q(sh(STEEL_D, int((r.f() - 0.5) * 8))) for _ in range(N)] for _ in range(N)]
+    for x in range(N):
+        px[SKIRT_V0][x] = STEEL_H                       # lit top lip
+        px[SKIRT_V0 + 1][x] = STEEL_L
+        px[SKIRT_V1 - 1][x] = STEEL_O                   # shadow under the lip
+    for x in range(N):                                  # amber warning band
+        band = AMB_M if (x // 2) % 2 == 0 else mix(AMB_M, AMB_D, 0.55)
+        px[SKIRT_V0 + 2][x] = q(band)
+        px[SKIRT_V0 + 3][x] = q(mix(band, STEEL_O, 0.35))
+    for x in (2, 8, 13):                                # rivets on the lower rail
+        px[SKIRT_V1 - 2][x] = STEEL_H
+    write_png(path, px)
+
+def make_foot(path, seed=46):
+    """Corner anchor block: heavier steel with a bolt on each face."""
+    r = Rng(seed)
+    px = [[q(sh(STEEL_M, int((r.f() - 0.5) * 10))) for _ in range(N)] for _ in range(N)]
     for i in range(N):
-        px[0][i] = STEEL_L
-        px[1][i] = STEEL_D
+        px[0][i] = STEEL_H
+        px[i][0] = STEEL_L
         px[N - 1][i] = STEEL_O
-        px[N - 2][i] = STEEL_D
+        px[i][N - 1] = STEEL_D
+    for (bx, by) in ((5, 5), (10, 5), (5, 10), (10, 10)):
+        px[by][bx] = STEEL_H
+        px[by + 1][bx] = STEEL_O
+    for x in range(4, 12):                              # amber accent
+        px[13][x] = q(AMB_M)
     write_png(path, px)
 
 def make_deck(path, seed=64):
-    """Plinth top: tread plate the tower stands on."""
+    """Platform top: diamond tread plate with a raised border."""
     r = Rng(seed)
-    px = [[q(sh(STEEL_D, int((r.f() - 0.5) * 10))) for _ in range(N)] for _ in range(N)]
-    for y in range(2, N, 4):
-        for x in range(N):
-            px[y][x] = q(sh(STEEL_M, -6))
-            if x % 2 == 0 and y + 1 < N:
-                px[y + 1][x] = STEEL_O
-    for i in range(N):
-        px[0][i] = STEEL_M
-        px[i][0] = STEEL_M
+    px = [[q(sh(STEEL_D, int((r.f() - 0.5) * 8))) for _ in range(N)] for _ in range(N)]
+    for y in range(2, N - 2):                           # diamond tread pattern
+        for x in range(2, N - 2):
+            # kept low-contrast: at three blocks across, a loud tread pattern
+            # turns into visual noise
+            if (x + y) % 6 in (0, 1) or (x - y) % 6 in (0, 1):
+                px[y][x] = q(mix(STEEL_D, STEEL_M, 0.7))
+            elif (x + y) % 6 == 2 or (x - y) % 6 == 2:
+                px[y][x] = q(mix(STEEL_D, STEEL_O, 0.5))
+    for i in range(N):                                  # raised border
+        px[0][i] = STEEL_L
+        px[i][0] = STEEL_L
+        px[1][i] = q(mix(STEEL_M, STEEL_D, 0.5))
+        px[i][1] = q(mix(STEEL_M, STEEL_D, 0.5))
         px[N - 1][i] = STEEL_O
         px[i][N - 1] = STEEL_O
+        px[N - 2][i] = q(STEEL_D)
+        px[i][N - 2] = q(STEEL_D)
     write_png(path, px)
 
 def make_bottom(path, seed=42):
@@ -729,6 +761,7 @@ make_rotor_top(f"{B}/centrifuge_rotor_top.png")
 make_rotor_top_glow(f"{B}/centrifuge_rotor_top_glow.png")
 make_shaft(f"{B}/centrifuge_shaft.png")
 make_base(f"{B}/centrifuge_base.png")
+make_foot(f"{B}/centrifuge_foot.png")
 make_deck(f"{B}/centrifuge_deck.png")
 make_bottom(f"{B}/centrifuge_bottom.png")
 

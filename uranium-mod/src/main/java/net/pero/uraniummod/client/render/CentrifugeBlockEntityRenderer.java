@@ -42,6 +42,8 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_deck.png");
 	private static final Identifier BASE =
 			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_base.png");
+	private static final Identifier FOOT =
+			Identifier.of(UraniumMod.MOD_ID, "textures/block/centrifuge_foot.png");
 
 	private static final float PX = 1.0f / 16.0f;
 	private static final int SIDES = 32;
@@ -58,9 +60,13 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 	private static final float FOOT_MIN = -16.0f, FOOT_MAX = 32.0f;
 	private static final float COLLAR_R = 21.0f, BODY_R = 19.0f, GLOW_R = 19.4f;
 	private static final float HOUSING_R = 13.0f, SHAFT_R = 3.0f;
-	private static final float Y_PLINTH = 5.0f;
-	private static final float Y_BODY0 = 9.0f, Y_BODY1 = 22.0f;
-	private static final float Y_UPPER = 26.0f, Y_HOUSING = 29.0f, Y_SHAFT = 32.0f;
+	private static final float Y_PLINTH = 6.0f;      // top of the platform deck
+	private static final float Y_FOOT = 7.5f;        // corner anchor blocks
+	private static final float Y_BODY0 = 10.0f, Y_BODY1 = 23.0f;
+	private static final float Y_UPPER = 27.0f, Y_HOUSING = 30.0f, Y_SHAFT = 32.0f;
+
+	/** The skirt texture's design lives in rows 5..11; see tools/gen_textures.py. */
+	private static final float SKIRT_V0 = 5.0f / 16.0f, SKIRT_V1 = 11.0f / 16.0f;
 
 	public CentrifugeBlockEntityRenderer(BlockEntityRendererFactory.Context ctx) {
 	}
@@ -82,17 +88,45 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 		// ends it. Holding several buffers at once and interleaving writes throws
 		// "Not building!" on the first write to a buffer that was already flushed.
 
-		{   // Plinth over the full 3x3 footprint, drawn as one box per block rather
-			// than a single 48px-wide one: stretching a 16px texture across the
-			// whole span is exactly the smearing that spoiled the old drum.
-			VertexConsumer base = vertexConsumers.getBuffer(
+		{   // Platform. Drawn as one box per block rather than a single 48px-wide
+			// one: stretching a 16px texture over the whole span is the same
+			// smearing that spoiled the earlier drum. The sides sample the
+			// skirt band, the top gets tread plate.
+			VertexConsumer skirt = vertexConsumers.getBuffer(
 					RenderLayer.getEntityCutoutNoCull(BASE));
 			for (int dx = -1; dx <= 1; dx++) {
 				for (int dz = -1; dz <= 1; dz++) {
 					float x0 = (dx * 16.0f - CX) * PX;
 					float z0 = (dz * 16.0f - CZ) * PX;
-					box(matrices, base, x0, 0.0f, z0,
+					boxSides(matrices, skirt, x0, 0.0f, z0,
 							x0 + 16.0f * PX, Y_PLINTH * PX, z0 + 16.0f * PX,
+							SKIRT_V0, SKIRT_V1, light, overlay);
+				}
+			}
+		}
+
+		{   // tread-plate deck on top of the platform
+			VertexConsumer deck = vertexConsumers.getBuffer(
+					RenderLayer.getEntityCutoutNoCull(DECK));
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					float x0 = (dx * 16.0f - CX) * PX;
+					float z0 = (dz * 16.0f - CZ) * PX;
+					boxTop(matrices, deck, x0, Y_PLINTH * PX, z0,
+							x0 + 16.0f * PX, z0 + 16.0f * PX, light, overlay);
+				}
+			}
+		}
+
+		{   // anchor blocks at the four corners, so the base is not a bare slab
+			VertexConsumer foot = vertexConsumers.getBuffer(
+					RenderLayer.getEntityCutoutNoCull(FOOT));
+			for (int sx = -1; sx <= 1; sx += 2) {
+				for (int sz = -1; sz <= 1; sz += 2) {
+					float cx = sx * 19.0f - CX;
+					float cz = sz * 19.0f - CZ;
+					box(matrices, foot, (cx - 5.0f) * PX, 0.0f, (cz - 5.0f) * PX,
+							(cx + 5.0f) * PX, Y_FOOT * PX, (cz + 5.0f) * PX,
 							light, overlay, 0xFFFFFFFF);
 				}
 			}
@@ -175,7 +209,40 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 		matrices.pop();
 	}
 
-	/** Axis-aligned box, used for the plinth. */
+	/** The four upright faces of a box, sampling a horizontal band of the texture. */
+	private static void boxSides(MatrixStack matrices, VertexConsumer vc,
+	                             float x0, float y0, float z0, float x1, float y1, float z1,
+	                             float v0, float v1, int light, int overlay) {
+		MatrixStack.Entry e = matrices.peek();
+		float[][] faces = {
+				{x1, y1, z0, x0, y1, z0, x0, y0, z0, x1, y0, z0, 0, 0, -1},
+				{x0, y1, z1, x1, y1, z1, x1, y0, z1, x0, y0, z1, 0, 0, 1},
+				{x1, y1, z1, x1, y1, z0, x1, y0, z0, x1, y0, z1, 1, 0, 0},
+				{x0, y1, z0, x0, y1, z1, x0, y0, z1, x0, y0, z0, -1, 0, 0},
+		};
+		float[][] uv = {{0, v0}, {1, v0}, {1, v1}, {0, v1}};
+		for (float[] f : faces) {
+			for (int i = 0; i < 4; i++) {
+				put(vc, e, f[i * 3], f[i * 3 + 1], f[i * 3 + 2], uv[i][0], uv[i][1],
+						light, overlay, f[12], f[13], f[14], 0xFFFFFFFF);
+			}
+		}
+	}
+
+	/** Just the top face of a box. */
+	private static void boxTop(MatrixStack matrices, VertexConsumer vc,
+	                           float x0, float y, float z0, float x1, float z1,
+	                           int light, int overlay) {
+		MatrixStack.Entry e = matrices.peek();
+		float[][] c = {{x0, y, z0}, {x1, y, z0}, {x1, y, z1}, {x0, y, z1}};
+		float[][] uv = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+		for (int i = 0; i < 4; i++) {
+			put(vc, e, c[i][0], c[i][1], c[i][2], uv[i][0], uv[i][1],
+					light, overlay, 0.0f, 1.0f, 0.0f, 0xFFFFFFFF);
+		}
+	}
+
+	/** Axis-aligned box, used for the corner feet. */
 	private static void box(MatrixStack matrices, VertexConsumer vc,
 	                        float x0, float y0, float z0, float x1, float y1, float z1,
 	                        int light, int overlay, int tint) {

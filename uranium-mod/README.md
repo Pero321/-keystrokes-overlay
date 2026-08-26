@@ -104,6 +104,11 @@ You place one item and it claims the whole footprint automatically, the way a
 Factorio building does; breaking any part of it takes the whole machine down and
 returns the item. Hoppers work against any face.
 
+It is **hardness 2.0 and not tool-gated**: a pickaxe is quick, but breaking it
+bare-handed still works and still drops the item. It used to be hardness 3.5
+with `requiresTool()`, which meant seventeen seconds of punching for no drop —
+indistinguishable, in play, from a block that refuses to break.
+
 ![centrifuge](docs/centrifuge.png)
 
 *Idle, running, and running from the front.* Idle really is idle — the panels are
@@ -131,7 +136,12 @@ it runs:
 
 Because the controller sits in the middle of its own footprint, surrounded by
 its own parts, redstone is read across the whole structure rather than at the
-controller — asking the controller alone would always answer no.
+controller — asking the controller alone would always answer no. The renderer
+has the same problem for a different reason: the light value handed to a block
+entity renderer is sampled at the block entity's own position, and that position
+is sealed inside eighteen solid blocks, where the light level is zero. Sampling
+one block above the machine instead — open air — is what stops it rendering
+almost black.
 
 Textures are sized to the surface they wrap. The tower map is **128×24**: the
 drum is about 119 block-pixels around and 14 tall, so a square texture would

@@ -2,6 +2,7 @@ package net.pero.uraniummod.client.render;
 
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
@@ -73,6 +74,16 @@ public class CentrifugeBlockEntityRenderer implements BlockEntityRenderer<Centri
 	                   VertexConsumerProvider vertexConsumers, int light, int overlay) {
 		boolean lit = be.getCachedState().contains(CentrifugeBlock.LIT)
 				&& be.getCachedState().get(CentrifugeBlock.LIT);
+
+		// The light handed to a block entity renderer is sampled at its own
+		// position -- and the controller sits at the centre of a sealed 3x3x2 of
+		// its own solid parts, where there is no light at all. Using it directly
+		// renders the machine almost black. Sample just above the machine
+		// instead, which is open air.
+		if (be.getWorld() != null) {
+			light = WorldRenderer.getLightmapCoordinates(be.getWorld(),
+					be.getPos().up(CentrifugeBlock.HEIGHT));
+		}
 		float spin = be.getSpin(tickDelta);
 		float heat = be.getHeatFraction();
 

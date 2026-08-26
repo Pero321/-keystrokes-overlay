@@ -52,8 +52,11 @@ public class ModBlocks {
 			"centrifuge",
 			CentrifugeBlock::new,
 			AbstractBlock.Settings.create()
-					.strength(3.5f, 6.0f)
-					.requiresTool()
+					// A pickaxe is the sensible tool, but the machine is not
+					// tool-gated: with requiresTool() a bare-handed player spends
+					// ~17 seconds on it and then gets nothing, which reads as
+					// "it will not break".
+					.strength(2.0f, 6.0f)
 					.sounds(BlockSoundGroup.METAL)
 					.luminance(state -> state.get(CentrifugeBlock.LIT) ? 8 : 0)
 					// the model is a framed body inset from the block edges, so
@@ -67,8 +70,7 @@ public class ModBlocks {
 			"centrifuge_part",
 			CentrifugePartBlock::new,
 			AbstractBlock.Settings.create()
-					.strength(3.5f, 6.0f)
-					.requiresTool()
+					.strength(2.0f, 6.0f)
 					.sounds(BlockSoundGroup.METAL)
 					.luminance(state -> 0)
 					.dropsNothing()

@@ -2,135 +2,226 @@
   "parent": "block/block",
   "textures": {
     "particle": "uraniummod:block/centrifuge_base",
-    "bottom": "uraniummod:block/centrifuge_bottom",
     "base": "uraniummod:block/centrifuge_base",
     "deck": "uraniummod:block/centrifuge_deck",
-    "tower": "uraniummod:block/centrifuge_tower"
+    "tower": "uraniummod:block/centrifuge_tower",
+    "rotor": "uraniummod:block/centrifuge_rotor_top"
   },
   "elements": [
     {
       "from": [
+        1,
         0,
-        0,
-        0
+        1
       ],
       "to": [
-        16,
-        6,
-        16
+        15,
+        2,
+        15
       ],
       "faces": {
-        "down": {
-          "texture": "#bottom",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
-        "up": {
-          "texture": "#deck",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
         "north": {
           "texture": "#base",
           "uv": [
             0,
-            5,
+            6,
             16,
-            11
+            9
           ]
         },
         "south": {
           "texture": "#base",
           "uv": [
             0,
-            5,
+            6,
             16,
-            11
+            9
           ]
         },
         "east": {
           "texture": "#base",
           "uv": [
             0,
-            5,
+            6,
             16,
-            11
+            9
           ]
         },
         "west": {
           "texture": "#base",
           "uv": [
             0,
-            5,
+            6,
             16,
-            11
+            9
+          ]
+        },
+        "down": {
+          "texture": "#base",
+          "uv": [
+            0,
+            0,
+            16,
+            16
           ]
         }
       }
     },
     {
       "from": [
-        3,
-        6,
-        3
+        1,
+        2,
+        1
       ],
       "to": [
-        13,
-        16,
-        13
+        15,
+        5,
+        15
       ],
       "faces": {
-        "up": {
-          "texture": "#deck",
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
         "north": {
           "texture": "#tower",
           "uv": [
             0,
-            4,
-            16,
-            20
+            0.0,
+            2.0,
+            2.6666666666666665
           ]
         },
         "south": {
           "texture": "#tower",
           "uv": [
             0,
-            4,
-            16,
-            20
+            0.0,
+            2.0,
+            2.6666666666666665
           ]
         },
         "east": {
           "texture": "#tower",
           "uv": [
             0,
-            4,
-            16,
-            20
+            0.0,
+            2.0,
+            2.6666666666666665
           ]
         },
         "west": {
           "texture": "#tower",
           "uv": [
             0,
-            4,
+            0.0,
+            2.0,
+            2.6666666666666665
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        5,
+        2
+      ],
+      "to": [
+        14,
+        13,
+        14
+      ],
+      "faces": {
+        "north": {
+          "texture": "#tower",
+          "uv": [
+            0,
+            2.6666666666666665,
+            2.0,
+            13.333333333333334
+          ]
+        },
+        "south": {
+          "texture": "#tower",
+          "uv": [
+            0,
+            2.6666666666666665,
+            2.0,
+            13.333333333333334
+          ]
+        },
+        "east": {
+          "texture": "#tower",
+          "uv": [
+            0,
+            2.6666666666666665,
+            2.0,
+            13.333333333333334
+          ]
+        },
+        "west": {
+          "texture": "#tower",
+          "uv": [
+            0,
+            2.6666666666666665,
+            2.0,
+            13.333333333333334
+          ]
+        }
+      }
+    },
+    {
+      "from": [
+        1,
+        13,
+        1
+      ],
+      "to": [
+        15,
+        16,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "#tower",
+          "uv": [
+            0,
+            13.333333333333334,
+            2.0,
+            16.0
+          ]
+        },
+        "south": {
+          "texture": "#tower",
+          "uv": [
+            0,
+            13.333333333333334,
+            2.0,
+            16.0
+          ]
+        },
+        "east": {
+          "texture": "#tower",
+          "uv": [
+            0,
+            13.333333333333334,
+            2.0,
+            16.0
+          ]
+        },
+        "west": {
+          "texture": "#tower",
+          "uv": [
+            0,
+            13.333333333333334,
+            2.0,
+            16.0
+          ]
+        },
+        "up": {
+          "texture": "#rotor",
+          "uv": [
+            0,
+            0,
             16,
-            20
+            16
           ]
         }
       }

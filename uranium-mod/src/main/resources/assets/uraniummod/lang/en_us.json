@@ -14,5 +14,20 @@
   "item.uraniummod.centrifuge": "Centrifuge",
   "screen.uraniummod.centrifuge.heat": "Heat: %s / %s",
   "screen.uraniummod.centrifuge.ready": "Up to temperature",
-  "screen.uraniummod.centrifuge.warming": "Needs redstone power and more heat"
+  "screen.uraniummod.centrifuge.warming": "Needs redstone power and more heat",
+  "item.uraniummod.uranium_238": "Uranium-238",
+  "item.uraniummod.uranium_235": "Uranium-235",
+  "item.uraniummod.uranium_fuel_cell": "Uranium Fuel Cell",
+  "item.uraniummod.uranium_sword": "Uranium Sword",
+  "item.uraniummod.uranium_pickaxe": "Uranium Pickaxe",
+  "item.uraniummod.uranium_axe": "Uranium Axe",
+  "item.uraniummod.uranium_shovel": "Uranium Shovel",
+  "item.uraniummod.uranium_hoe": "Uranium Hoe",
+  "item.uraniummod.shielded_helmet": "Shielded Helmet",
+  "item.uraniummod.shielded_chestplate": "Shielded Chestplate",
+  "item.uraniummod.shielded_leggings": "Shielded Leggings",
+  "item.uraniummod.shielded_boots": "Shielded Boots",
+  "effect.uraniummod.radiation": "Radiation",
+  "death.attack.radiation": "%1$s succumbed to radiation",
+  "death.attack.radiation.player": "%1$s succumbed to radiation while carrying uranium for %2$s"
 }

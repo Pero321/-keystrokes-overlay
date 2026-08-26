@@ -43,6 +43,13 @@ if __name__ == "__main__":
         "textures/block/uranium_ore.png", "textures/block/deepslate_uranium_ore.png",
         "textures/item/raw_uranium.png", "textures/item/uranium_ingot.png",
         "textures/block/raw_uranium_block.png", "textures/block/uranium_block.png",
+        "textures/item/uranium_238.png", "textures/item/uranium_235.png",
+        "textures/item/uranium_fuel_cell.png",
+        "textures/item/uranium_pickaxe.png", "textures/item/uranium_axe.png",
+        "textures/item/uranium_shovel.png", "textures/item/uranium_hoe.png",
+        "textures/item/uranium_sword.png",
+        "textures/item/shielded_helmet.png", "textures/item/shielded_chestplate.png",
+        "textures/item/shielded_leggings.png", "textures/item/shielded_boots.png",
         "textures/block/centrifuge_rotor_top.png", "textures/block/centrifuge_base.png",
         "textures/block/centrifuge_deck.png", "textures/block/centrifuge_shaft.png",
     ]

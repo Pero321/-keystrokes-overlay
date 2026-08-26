@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "UUU",
+    "U U",
+    "U U"
+  ],
+  "key": {
+    "U": "uraniummod:uranium_238"
+  },
+  "result": {
+    "id": "uraniummod:shielded_leggings",
+    "count": 1
+  }
+}

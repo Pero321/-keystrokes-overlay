@@ -1,0 +1,9 @@
+{
+  "type": "uraniummod:centrifuging",
+  "ingredient": "uraniummod:raw_uranium_block",
+  "result": { "id": "uraniummod:uranium_238", "count": 9 },
+  "byproduct": { "id": "uraniummod:uranium_235", "count": 1 },
+  "byproduct_chance": 0.5,
+  "processing_time": 900,
+  "heat": 800
+}

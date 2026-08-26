@@ -12,7 +12,6 @@ import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.util.math.BlockPos;
 import net.pero.uraniummod.block.entity.CentrifugeBlockEntity;
-import net.pero.uraniummod.item.ModItems;
 
 public class CentrifugeScreenHandler extends ScreenHandler {
 	private final Inventory inventory;
@@ -27,23 +26,16 @@ public class CentrifugeScreenHandler extends ScreenHandler {
 	public CentrifugeScreenHandler(int syncId, PlayerInventory playerInventory,
 	                               Inventory inventory, PropertyDelegate propertyDelegate) {
 		super(ModScreenHandlers.CENTRIFUGE, syncId);
-		checkSize(inventory, 2);
+		checkSize(inventory, CentrifugeBlockEntity.SLOT_COUNT);
 		this.inventory = inventory;
 		this.propertyDelegate = propertyDelegate;
 		inventory.onOpen(playerInventory.player);
 
-		addSlot(new Slot(inventory, CentrifugeBlockEntity.INPUT_SLOT, 56, 35) {
-			@Override
-			public boolean canInsert(ItemStack stack) {
-				return stack.isOf(ModItems.RAW_URANIUM);
-			}
-		});
-		addSlot(new Slot(inventory, CentrifugeBlockEntity.OUTPUT_SLOT, 116, 35) {
-			@Override
-			public boolean canInsert(ItemStack stack) {
-				return false;
-			}
-		});
+		// The input slot takes anything, like a furnace does. Whether it actually
+		// refines is the recipe's business, and only the server can answer that.
+		addSlot(new Slot(inventory, CentrifugeBlockEntity.INPUT_SLOT, 56, 35));
+		addSlot(new OutputSlot(inventory, CentrifugeBlockEntity.OUTPUT_SLOT, 116, 26));
+		addSlot(new OutputSlot(inventory, CentrifugeBlockEntity.BYPRODUCT_SLOT, 116, 48));
 
 		for (int row = 0; row < 3; row++) {
 			for (int col = 0; col < 9; col++) {
@@ -59,7 +51,20 @@ public class CentrifugeScreenHandler extends ScreenHandler {
 
 	private static Inventory resolveInventory(PlayerInventory playerInventory, BlockPos pos) {
 		BlockEntity be = playerInventory.player.getWorld().getBlockEntity(pos);
-		return be instanceof Inventory inv ? inv : new SimpleInventory(2);
+		return be instanceof Inventory inv
+				? inv : new SimpleInventory(CentrifugeBlockEntity.SLOT_COUNT);
+	}
+
+	/** Products can be taken out but never put back in. */
+	private static class OutputSlot extends Slot {
+		OutputSlot(Inventory inventory, int index, int x, int y) {
+			super(inventory, index, x, y);
+		}
+
+		@Override
+		public boolean canInsert(ItemStack stack) {
+			return false;
+		}
 	}
 
 	// ------------------------------------------------------------------ gauges
@@ -112,7 +117,7 @@ public class CentrifugeScreenHandler extends ScreenHandler {
 		ItemStack originalStack = slot.getStack();
 		newStack = originalStack.copy();
 
-		int inventoryStart = 2;
+		int inventoryStart = CentrifugeBlockEntity.SLOT_COUNT;
 		int inventoryEnd = slots.size();
 
 		if (slotIndex < inventoryStart) {
@@ -121,7 +126,8 @@ public class CentrifugeScreenHandler extends ScreenHandler {
 				return ItemStack.EMPTY;
 			}
 			slot.onQuickTransfer(originalStack, newStack);
-		} else if (!insertItem(originalStack, 0, 1, false)) {
+		} else if (!insertItem(originalStack, CentrifugeBlockEntity.INPUT_SLOT,
+				CentrifugeBlockEntity.INPUT_SLOT + 1, false)) {
 			// player -> machine input, else shuffle within the player's own inventory
 			int hotbarStart = inventoryEnd - 9;
 			if (slotIndex < hotbarStart) {

@@ -31,9 +31,21 @@ public class ModItemGroups {
 			entries.add(ModBlocks.DEEPSLATE_URANIUM_ORE);
 			entries.add(ModItems.RAW_URANIUM);
 			entries.add(ModBlocks.RAW_URANIUM_BLOCK);
+			entries.add(ModBlocks.CENTRIFUGE);
+			entries.add(ModItems.URANIUM_238);
+			entries.add(ModItems.URANIUM_235);
 			entries.add(ModItems.URANIUM_INGOT);
 			entries.add(ModBlocks.URANIUM_BLOCK);
-			entries.add(ModBlocks.CENTRIFUGE);
+			entries.add(ModItems.URANIUM_FUEL_CELL);
+			entries.add(ModItems.URANIUM_SWORD);
+			entries.add(ModItems.URANIUM_PICKAXE);
+			entries.add(ModItems.URANIUM_AXE);
+			entries.add(ModItems.URANIUM_SHOVEL);
+			entries.add(ModItems.URANIUM_HOE);
+			entries.add(ModItems.SHIELDED_HELMET);
+			entries.add(ModItems.SHIELDED_CHESTPLATE);
+			entries.add(ModItems.SHIELDED_LEGGINGS);
+			entries.add(ModItems.SHIELDED_BOOTS);
 		});
 
 		// Also surface everything in the vanilla creative tabs, next to the vanilla equivalents.
@@ -44,7 +56,25 @@ public class ModItemGroups {
 
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.INGREDIENTS).register(entries -> {
 			entries.add(ModItems.RAW_URANIUM);
+			entries.add(ModItems.URANIUM_238);
+			entries.add(ModItems.URANIUM_235);
 			entries.add(ModItems.URANIUM_INGOT);
+			entries.add(ModItems.URANIUM_FUEL_CELL);
+		});
+
+		ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> {
+			entries.add(ModItems.URANIUM_PICKAXE);
+			entries.add(ModItems.URANIUM_AXE);
+			entries.add(ModItems.URANIUM_SHOVEL);
+			entries.add(ModItems.URANIUM_HOE);
+		});
+
+		ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> {
+			entries.add(ModItems.URANIUM_SWORD);
+			entries.add(ModItems.SHIELDED_HELMET);
+			entries.add(ModItems.SHIELDED_CHESTPLATE);
+			entries.add(ModItems.SHIELDED_LEGGINGS);
+			entries.add(ModItems.SHIELDED_BOOTS);
 		});
 
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.BUILDING_BLOCKS).register(entries -> {

@@ -74,6 +74,8 @@ AX, AY, AW, AH = 86, 38, 16, 11
 g = rd(f"{RES}/textures/gui/centrifuge.png")
 raw_item = rd(f"{RES}/textures/item/raw_uranium.png")
 ingot = rd(f"{RES}/textures/item/uranium_ingot.png")
+u238 = rd(f"{RES}/textures/item/uranium_238.png")
+u235 = rd(f"{RES}/textures/item/uranium_235.png")
 
 HEAT_TEXT_Y = 61
 COLD_COL = (0xC0, 0x8A, 0x3C, 255)
@@ -102,8 +104,10 @@ def shot(heat_frac, prog_frac, items):
     draw_text(px, label, HX + HW // 2 - text_width(label) // 2, HEAT_TEXT_Y, col)
     return px
 
+# cold with an input waiting; hot and mid-run, with the common isotope piling
+# up on top and the rare one that has landed once below it
 shots = [shot(0.28, 0.0, [(raw_item, 56, 35)]),
-         shot(0.78, 0.62, [(raw_item, 56, 35), (ingot, 116, 35)])]
+         shot(0.78, 0.62, [(raw_item, 56, 35), (u238, 116, 26), (u235, 116, 48)])]
 S, PAD = 3, 14
 W = PAD + len(shots) * (PW*S + PAD); H = PAD*2 + PH*S
 cv = [[(20, 20, 23, 255) for _ in range(W)] for _ in range(H)]

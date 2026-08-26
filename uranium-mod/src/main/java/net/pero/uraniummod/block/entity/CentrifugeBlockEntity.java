@@ -12,10 +12,14 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
+import net.minecraft.recipe.RecipeEntry;
+import net.minecraft.recipe.ServerRecipeManager;
+import net.minecraft.recipe.input.SingleStackRecipeInput;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.screen.PropertyDelegate;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
@@ -23,8 +27,11 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
 import net.pero.uraniummod.block.CentrifugeBlock;
-import net.pero.uraniummod.item.ModItems;
+import net.pero.uraniummod.recipe.CentrifugingRecipe;
+import net.pero.uraniummod.recipe.ModRecipes;
 import net.pero.uraniummod.screen.CentrifugeScreenHandler;
+
+import java.util.Optional;
 
 /**
  * Refines raw uranium into ingots, but only once it is hot enough.
@@ -37,13 +44,18 @@ public class CentrifugeBlockEntity extends BlockEntity
 		implements ExtendedScreenHandlerFactory<BlockPos>, ImplementedInventory {
 
 	public static final int INPUT_SLOT = 0;
+	/** The product every completed run yields. */
 	public static final int OUTPUT_SLOT = 1;
+	/** The chanced second product. Most runs leave this untouched. */
+	public static final int BYPRODUCT_SLOT = 2;
+	public static final int SLOT_COUNT = 3;
 
 	public static final int MAX_HEAT = 1000;
 	/** Keep in sync with THRESHOLD in tools/gen_textures.py, which draws the gauge notch. */
 	public static final int OPERATING_HEAT = 600;
 	public static final int HEAT_PER_TICK = 2;
 	public static final int COOL_PER_TICK = 3;
+	/** Fallback when no recipe is matched; individual recipes set their own. */
 	public static final int PROCESS_TIME = 160;
 
 	// property delegate indices, shared with the screen handler
@@ -59,7 +71,13 @@ public class CentrifugeBlockEntity extends BlockEntity
 	/** Heat is pushed to nearby clients in buckets this size, not every tick. */
 	private static final int HEAT_SYNC_BUCKET = 100;
 
-	private final DefaultedList<ItemStack> inventory = DefaultedList.ofSize(2, ItemStack.EMPTY);
+	private final DefaultedList<ItemStack> inventory = DefaultedList.ofSize(SLOT_COUNT, ItemStack.EMPTY);
+
+	/** Caches the last matched recipe so a lookup does not run every tick. */
+	private final ServerRecipeManager.MatchGetter<SingleStackRecipeInput, CentrifugingRecipe> matchGetter =
+			ServerRecipeManager.createCachedMatchGetter(ModRecipes.CENTRIFUGING);
+	/** The recipe the machine is currently working on, if any. */
+	private CentrifugingRecipe currentRecipe;
 	private int heat = 0;
 	private int progress = 0;
 	private int lastSyncedBucket = -1;
@@ -75,8 +93,10 @@ public class CentrifugeBlockEntity extends BlockEntity
 				case PROP_HEAT -> heat;
 				case PROP_PROGRESS -> progress;
 				case PROP_MAX_HEAT -> MAX_HEAT;
-				case PROP_PROCESS_TIME -> PROCESS_TIME;
-				case PROP_OPERATING_HEAT -> OPERATING_HEAT;
+				case PROP_PROCESS_TIME -> currentRecipe != null
+						? currentRecipe.getProcessingTime() : PROCESS_TIME;
+				case PROP_OPERATING_HEAT -> currentRecipe != null
+						? currentRecipe.getHeat() : OPERATING_HEAT;
 				default -> 0;
 			};
 		}
@@ -131,10 +151,11 @@ public class CentrifugeBlockEntity extends BlockEntity
 			dirty = true;
 		}
 
-		if (be.isHotEnough() && be.canProcess()) {
+		be.currentRecipe = be.findRecipe();
+		if (be.canProcess(be.currentRecipe)) {
 			be.progress++;
-			if (be.progress >= PROCESS_TIME) {
-				be.process();
+			if (be.progress >= be.currentRecipe.getProcessingTime()) {
+				be.process(be.currentRecipe);
 				be.progress = 0;
 			}
 			dirty = true;
@@ -213,44 +234,86 @@ public class CentrifugeBlockEntity extends BlockEntity
 		return heat >= OPERATING_HEAT;
 	}
 
-	private boolean canProcess() {
+	/**
+	 * Looks up the recipe for whatever is in the input slot. Returns null on the
+	 * client, which has no recipe manager of its own.
+	 */
+	private CentrifugingRecipe findRecipe() {
 		ItemStack input = inventory.get(INPUT_SLOT);
-		if (!input.isOf(ModItems.RAW_URANIUM)) {
-			return false;
+		if (input.isEmpty() || !(world instanceof ServerWorld serverWorld)) {
+			return null;
 		}
-		ItemStack output = inventory.get(OUTPUT_SLOT);
-		if (output.isEmpty()) {
-			return true;
-		}
-		return output.isOf(ModItems.URANIUM_INGOT)
-				&& output.getCount() < output.getMaxCount();
+		Optional<RecipeEntry<CentrifugingRecipe>> match =
+				matchGetter.getFirstMatch(new SingleStackRecipeInput(input), serverWorld);
+		return match.map(RecipeEntry::value).orElse(null);
 	}
 
-	private void process() {
+	/**
+	 * A run only starts if both products have somewhere to go. The byproduct is
+	 * checked even though most runs will not produce one -- otherwise the machine
+	 * would consume an input and then have nowhere to put the rare output, which
+	 * is the one result a player would actually mind losing.
+	 */
+	private boolean canProcess(CentrifugingRecipe recipe) {
+		return recipe != null
+				&& heat >= recipe.getHeat()
+				&& fits(inventory.get(OUTPUT_SLOT), recipe.getResult())
+				&& fits(inventory.get(BYPRODUCT_SLOT), recipe.getByproduct());
+	}
+
+	private static boolean fits(ItemStack slot, ItemStack product) {
+		if (product.isEmpty() || slot.isEmpty()) {
+			return true;
+		}
+		return ItemStack.areItemsAndComponentsEqual(slot, product)
+				&& slot.getCount() + product.getCount() <= slot.getMaxCount();
+	}
+
+	private void process(CentrifugingRecipe recipe) {
 		inventory.get(INPUT_SLOT).decrement(1);
-		ItemStack output = inventory.get(OUTPUT_SLOT);
-		if (output.isEmpty()) {
-			inventory.set(OUTPUT_SLOT, new ItemStack(ModItems.URANIUM_INGOT, 1));
+		deposit(OUTPUT_SLOT, recipe.getResult().copy());
+		deposit(BYPRODUCT_SLOT, recipe.rollByproduct(world.getRandom()));
+	}
+
+	private void deposit(int slot, ItemStack product) {
+		if (product.isEmpty()) {
+			return;
+		}
+		ItemStack existing = inventory.get(slot);
+		if (existing.isEmpty()) {
+			inventory.set(slot, product);
 		} else {
-			output.increment(1);
+			existing.increment(product.getCount());
 		}
 	}
 
 	// ------------------------------------------------------------------ sidedness
 
+	private static final int[] OUTPUT_SLOTS = {OUTPUT_SLOT, BYPRODUCT_SLOT};
+	private static final int[] INPUT_SLOTS = {INPUT_SLOT};
+
 	@Override
 	public int[] getAvailableSlots(Direction side) {
-		return side == Direction.DOWN ? new int[]{OUTPUT_SLOT} : new int[]{INPUT_SLOT};
+		return side == Direction.DOWN ? OUTPUT_SLOTS : INPUT_SLOTS;
 	}
 
 	@Override
 	public boolean canInsert(int slot, ItemStack stack, Direction side) {
-		return slot == INPUT_SLOT && stack.isOf(ModItems.RAW_URANIUM);
+		return slot == INPUT_SLOT && isValidInput(stack);
+	}
+
+	/** True if some loaded centrifuging recipe accepts this stack. */
+	public boolean isValidInput(ItemStack stack) {
+		if (stack.isEmpty() || !(world instanceof ServerWorld serverWorld)) {
+			return false;
+		}
+		return matchGetter.getFirstMatch(
+				new SingleStackRecipeInput(stack), serverWorld).isPresent();
 	}
 
 	@Override
 	public boolean canExtract(int slot, ItemStack stack, Direction side) {
-		return slot == OUTPUT_SLOT;
+		return slot == OUTPUT_SLOT || slot == BYPRODUCT_SLOT;
 	}
 
 	@Override

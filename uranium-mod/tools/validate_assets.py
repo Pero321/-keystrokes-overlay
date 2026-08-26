@@ -146,6 +146,28 @@ if os.path.isdir(particles_dir):
             check_texture_file(f"particles/{name}", ident, "frame")
             seen_textures.add(ident)
 
+# equipment assets name the layer texture without any prefix: the layer key
+# ("humanoid", "humanoid_leggings", ...) picks the directory it lives in. A typo
+# here fails silently in game -- the armour simply renders as nothing -- so it is
+# exactly the sort of reference worth checking here.
+equip_dir = os.path.join(ROOT, "assets", NS, "equipment")
+if os.path.isdir(equip_dir):
+    for name in sorted(os.listdir(equip_dir)):
+        data = json.load(open(os.path.join(equip_dir, name)))
+        layers = data.get("layers", {})
+        if not layers:
+            errors.append(f"equipment/{name}: no layers listed")
+        for layer, entries in layers.items():
+            for entry in entries:
+                tex = entry.get("texture")
+                if not tex:
+                    errors.append(f"equipment/{name}: layer {layer} has no texture")
+                    continue
+                ns, _, short = tex.rpartition(":")
+                ident = f"{ns or 'minecraft'}:entity/equipment/{layer}/{short}"
+                check_texture_file(f"equipment/{name}", ident, f"layer {layer}")
+                seen_textures.add(ident)
+
 tex_dir = os.path.join(ROOT, "assets", NS, "textures")
 for dirpath, _, files in os.walk(tex_dir):
     for f in files:

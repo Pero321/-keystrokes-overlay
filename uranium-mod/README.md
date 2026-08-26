@@ -1,9 +1,26 @@
 # Uranium Ore — Minecraft 1.21.4 (Fabric)
 
-Adds uranium to the overworld: ore in both stone and deepslate, raw uranium,
-uranium ingots, and the two matching storage blocks.
+Adds uranium to the overworld, and a reason to care about it: ore in stone and
+deepslate, a redstone-powered centrifuge that **enriches** raw uranium into two
+isotopes, a tool tier, a fuel cell, and radiation that punishes carrying the raw
+material around without shielding.
 
 ![textures](docs/textures.png)
+
+## The loop
+
+```
+uranium ore ──mine──► raw uranium ──centrifuge──► uranium-238  (every run)
+                           │                     uranium-235  (7% of runs)
+                    RADIOACTIVE                        │
+                    in your hand                       │
+                                          9× U-238 ──► uranium ingot ──► tools
+                                             U-238 ──► shielded armour
+                                             U-235 ──► fuel cell
+```
+
+Raw uranium is the only radioactive item. Everything past the centrifuge is
+safe to carry, which is what makes refining worth doing.
 
 ## Contents
 
@@ -11,14 +28,19 @@ uranium ingots, and the two matching storage blocks.
 | --- | --- | --- |
 | Uranium Ore | `uraniummod:uranium_ore` | Hardness 3.0, drops 1–2 raw uranium |
 | Deepslate Uranium Ore | `uraniummod:deepslate_uranium_ore` | Hardness 4.5, drops 1–2 raw uranium |
-| Raw Uranium | `uraniummod:raw_uranium` | Smelts into an ingot |
-| Uranium Ingot | `uraniummod:uranium_ingot` | |
+| Raw Uranium | `uraniummod:raw_uranium` | **Radioactive in hand.** Centrifuge feedstock |
+| Uranium-238 | `uraniummod:uranium_238` | The bulk isotope. Shielding, and 9× → an ingot |
+| Uranium-235 | `uraniummod:uranium_235` | Rare. The only thing that fuels a cell |
+| Uranium Ingot | `uraniummod:uranium_ingot` | Tool material |
+| Uranium Fuel Cell | `uraniummod:uranium_fuel_cell` | Furnace fuel, 32000 ticks — 20× coal |
 | Block of Raw Uranium | `uraniummod:raw_uranium_block` | 9× raw uranium |
 | Block of Uranium | `uraniummod:uranium_block` | 9× ingot |
-| Centrifuge | `uraniummod:centrifuge` | Redstone-powered; the only way to make ingots |
+| Centrifuge | `uraniummod:centrifuge` | 3×3×2, redstone-powered, needs heat |
+| Uranium tools | `uraniummod:uranium_{pickaxe,axe,shovel,hoe,sword}` | Between diamond and netherite |
+| Shielded armour | `uraniummod:shielded_{helmet,chestplate,leggings,boots}` | Stops radiation |
 
 Everything appears in its own **Uranium** creative tab, and is also mixed into
-the vanilla Natural / Ingredients / Building Blocks tabs.
+the vanilla Natural / Ingredients / Tools / Combat / Building Blocks tabs.
 
 ### Mining
 
@@ -143,6 +165,15 @@ is sealed inside eighteen solid blocks, where the light level is zero. Sampling
 one block above the machine instead — open air — is what stops it rendering
 almost black.
 
+Nothing here needed a client to check. Registration, the recipe type, the
+enrichment split, redstone gating and the crafting recipes were all verified
+against a dedicated server, and the exposure arithmetic has its own test that
+runs without Minecraft at all (`tools/test/run.sh`). Two real bugs came out of
+that: the fuel cell originally asked for 40000 ticks of burn time, which
+overflows the NBT *short* a furnace stores it in and silently produces a fuel
+that cannot be lit; and an earlier version read redstone at the controller,
+which is sealed inside its own parts and therefore never powered.
+
 Textures are sized to the surface they wrap. The tower map is **128×24**: the
 drum is about 119 block-pixels around and 14 tall, so a square texture would
 have to stretch to fit. The plinth is drawn as nine per-block boxes for the same
@@ -151,10 +182,70 @@ light curved surfaces from the vertex normals.
 
 None of this needs an extra mod.
 
+### Enrichment
+
+The centrifuge does not convert one thing into another. It **splits**:
+
+| In | Out, always | Out, sometimes | Time | Heat |
+| --- | --- | --- | --- | --- |
+| 1 raw uranium | 1 × U-238 | 1 × U-235, 7% | 160 ticks | 600 |
+| 1 block of raw uranium | 9 × U-238 | 1 × U-235, 50% | 900 ticks | 800 |
+
+So U-238 piles up and U-235 does not, which is the whole reason to leave the
+machine running. Feeding whole blocks is slower per item but much better odds on
+the rare isotope — worth it once you have a mine going.
+
+Both outputs have their own slot, and a run will not start unless **both** have
+room. That is deliberate: without the check the machine would happily eat an
+input, find the byproduct slot full, and throw away the one output a player
+would actually miss.
+
+`uraniummod:centrifuging` is a real recipe type, so a datapack can add its own:
+
+```json
+{
+  "type": "uraniummod:centrifuging",
+  "ingredient": "minecraft:gold_ingot",
+  "result":    { "id": "minecraft:gold_nugget", "count": 4 },
+  "byproduct": { "id": "uraniummod:uranium_235", "count": 1 },
+  "byproduct_chance": 1.0,
+  "processing_time": 40,
+  "heat": 200
+}
+```
+
+`byproduct`, `byproduct_chance`, `processing_time` and `heat` are all optional.
+Process time and heat are per recipe, so a datapack can make one recipe demand a
+hotter machine than another.
+
+### Radiation
+
+Hold **raw uranium** — the item or the block — and you take damage over time.
+Nothing else in the mod is radioactive: ingots, both isotopes and the refined
+block are all inert, because the point of the centrifuge is that refining makes
+uranium safe to handle.
+
+Exposure is counted in raw uranium, with a block worth nine. Under 16 is
+Radiation I, 16 or more is II, 64 or more is III; the levels differ in how often
+they tick and how hard. It bypasses armour points and enchantments — a
+breastplate is not shielding.
+
+**Shielded armour** is the only defence. Each worn piece stops a quarter of the
+exposure and the full set stops all of it, at any amount. It is made from U-238,
+which is what real shielding is made of, and it is deliberately plain iron-grade
+protection otherwise: it is safety gear, not a combat set.
+
+### Tools
+
+Uranium tools sit between diamond and netherite: 2200 uses, mining speed 9.0,
++3.5 attack. They mine everything diamond can, and nothing it cannot.
+
 ### Other recipes
 
 - 9 raw uranium ⇄ block of raw uranium
 - 9 uranium ingot ⇄ block of uranium
+- 9 U-238 → 1 uranium ingot
+- 1 U-235 + 4 iron ingots → 1 uranium fuel cell
 
 ## Installing
 
@@ -221,6 +312,7 @@ Helper scripts alongside it:
 | `tools/check_render_buffers.py` | Catches stale `VertexConsumer` writes in block entity renderers |
 | `tools/gen_centrifuge_model.py` | Builds the centrifuge's multi-element model |
 | `tools/verify_worldgen.py` | Counts placed blocks in a generated world |
+| `tools/test/run.sh` | Runs the standalone logic tests (plain javac, no Gradle, no game) |
 
 `validate_assets.py` is worth running after any model or texture change — a
 model pointing at a missing texture otherwise only shows up as an untextured

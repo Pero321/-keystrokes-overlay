@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "uraniummod:shielded"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "uraniummod:shielded"
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "UUU",
+    " S ",
+    " S "
+  ],
+  "key": {
+    "U": "uraniummod:uranium_ingot",
+    "S": "minecraft:stick"
+  },
+  "result": {
+    "id": "uraniummod:uranium_pickaxe",
+    "count": 1
+  }
+}

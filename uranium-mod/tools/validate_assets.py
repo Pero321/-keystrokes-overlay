@@ -168,6 +168,14 @@ if os.path.isdir(equip_dir):
                 check_texture_file(f"equipment/{name}", ident, f"layer {layer}")
                 seen_textures.add(ident)
 
+# Colour budgets. A texture that has drifted to dozens of near-identical
+# shades reads as machine-generated noise no matter how good its shapes are,
+# and the shipped png is the thing players see -- so this checks the files on
+# disk, not just what the generator happened to write.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from texture_budget import budget_for            # noqa: E402
+from png_read import read_png                    # noqa: E402
+
 tex_dir = os.path.join(ROOT, "assets", NS, "textures")
 for dirpath, _, files in os.walk(tex_dir):
     for f in files:
@@ -175,6 +183,13 @@ for dirpath, _, files in os.walk(tex_dir):
         if f.endswith(".png"):
             if open(full, "rb").read(8) != b"\x89PNG\r\n\x1a\n":
                 errors.append(f"{f}: not a valid png")
+                continue
+            _, _, px = read_png(full)
+            used = {p for row in px for p in row if p[3]}
+            cap = budget_for(f)
+            if len(used) > cap:
+                errors.append(f"{f}: {len(used)} distinct colours, budget {cap} "
+                              f"(see tools/texture_budget.py)")
         elif f.endswith(".mcmeta"):
             png = full[:-len(".mcmeta")]
             if not os.path.exists(png):

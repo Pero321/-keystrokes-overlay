@@ -5,19 +5,29 @@
 The uranium palette is deliberately a saturated Factorio-style green; change the
 URA_* constants below to retune the whole set at once.
 """
-import json, math, os, struct, zlib
+import json, math, os, struct, sys, zlib
 
 RES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                    "..", "src", "main", "resources", "assets", "uraniummod")
 N = 16
 
 # ---------------------------------------------------------------- png writer
+# Colour budgets live in tools/texture_budget.py, shared with the asset
+# validator so the shipped files are checked too, not just what this writes.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from texture_budget import budget_for            # noqa: E402
+
 def write_png(path, px):
     h, w = len(px), len(px[0])
     for y, row in enumerate(px):
         assert len(row) == w, f"{path}: row {y} has {len(row)} px, expected {w}"
         for x, p in enumerate(row):
             assert len(p) == 4, f"{path}: pixel ({x},{y}) is {p}, expected RGBA"
+    used = {p for row in px for p in row if p[3]}
+    cap = budget_for(os.path.basename(path))
+    assert len(used) <= cap, (
+        f"{os.path.basename(path)}: {len(used)} distinct colours, budget {cap}. "
+        f"Snap to a fixed palette instead of mixing free shades.")
     raw = b"".join(b"\x00" + bytes(c for p in row for c in p) for row in px)
     def chunk(tag, data):
         return (struct.pack(">I", len(data)) + tag + data
@@ -77,13 +87,18 @@ def wd_signed(a, b, n=N):
     return d
 
 # ---------------------------------------------------------------- palettes
-# uranium: saturated green crystal
-URA_O = (16, 44, 16, 255)      # outline / deepest shadow
-URA_D = (34, 88, 32, 255)      # dark facet
-URA_M = (56, 146, 50, 255)     # mid facet
-URA_L = (94, 202, 80, 255)     # lit facet
-URA_B = (140, 236, 120, 255)   # bright rim
-URA_S = (205, 255, 190, 255)   # specular
+# The one uranium ramp. Everything green in the mod indexes into this list and
+# nothing blends between its steps -- six shades for the whole material, which
+# is the range vanilla works in.
+URANIUM = [
+    (20, 56, 24, 255),      # 0 outline / deepest shadow
+    (38, 104, 40, 255),     # 1 dark facet
+    (60, 154, 56, 255),     # 2 mid facet
+    (104, 210, 88, 255),    # 3 lit facet
+    (158, 240, 130, 255),   # 4 bright rim
+    (222, 255, 210, 255),   # 5 specular
+]
+URA_O, URA_D, URA_M, URA_L, URA_B, URA_S = URANIUM
 
 # machine casing
 MET_O = (34, 36, 40, 255)
@@ -99,24 +114,78 @@ MAT_M = (92, 96, 97, 255)
 
 PAL = {"o": URA_O, "d": URA_D, "m": URA_M, "l": URA_L, "b": URA_B, "s": URA_S}
 
+# ---------------------------------------------------------------- palettes,
+# indexed
+#
+# These generators pick a palette *index*, never a colour. Blending two colours
+# to taste is what produced forty-odd shades in a 16x16 texture; choosing an
+# index cannot, because the ramp is all there is. It is also how a pixel artist
+# actually works.
+
+# Vanilla stone and deepslate, so ore blocks sit in the terrain they are cut
+# from instead of floating against it.
+STONE = [(104, 104, 104, 255), (116, 116, 116, 255),
+         (127, 127, 127, 255), (143, 143, 143, 255)]
+# Vanilla stone's own tonal balance: darkest grey is rare, the third is common.
+STONE_MIX = [17, 71, 118, 50]
+
+DEEPSLATE = [(47, 47, 55, 255), (61, 61, 67, 255), (81, 81, 81, 255),
+             (100, 100, 100, 255), (121, 121, 121, 255)]
+DEEPSLATE_MIX = [26, 70, 78, 58, 24]
+
+def rank_quantise(field, weights):
+    """Turn a continuous noise field into palette indices with a fixed tonal
+    balance.
+
+    Thresholding noise gives whatever distribution the noise happened to have.
+    Ranking every pixel and cutting at the given weights gives exactly the
+    intended mix every time -- here, vanilla stone's own histogram."""
+    n = len(field)
+    order = sorted(((field[y][x], x, y) for y in range(n) for x in range(n)))
+    total = float(sum(weights))
+    out = [[0] * n for _ in range(n)]
+    cuts, run = [], 0.0
+    for wt in weights:
+        run += wt / total
+        cuts.append(run * len(order))
+    i = 0
+    for k, cut in enumerate(cuts):
+        while i < len(order) and i < cut:
+            _, x, y = order[i]
+            out[y][x] = k
+            i += 1
+    while i < len(order):                    # rounding crumbs
+        _, x, y = order[i]
+        out[y][x] = len(weights) - 1
+        i += 1
+    return out
+
+def paint(idx, ramp):
+    """Index grid -> pixels. The only place a colour is ever chosen."""
+    return [[ramp[min(len(ramp) - 1, max(0, v))] for v in row] for row in idx]
+
 # ---------------------------------------------------------------- ore blocks
+# Crystal clusters, sized the way vanilla sizes them: several small gems and a
+# couple of larger ones, not a uniform scatter of medium blobs. Coverage and
+# cluster sizes were matched against emerald ore (74/256 across 6 clusters);
+# this is 67/256 across 6. The mask wraps, so clusters may cross an edge.
 ORE_MASK = [
     "................",
-    "....ooo.........",
-    "...ooooo....oo..",
-    "...oooo....oooo.",
-    "....oo.....oooo.",
-    "...........ooo..",
-    ".....oo.........",
-    "....oooo........",
-    "...oooooo.......",
-    "....oooo....oo..",
-    ".....oo....oooo.",
-    "..........ooooo.",
-    "...........ooo..",
-    "..oo............",
-    ".oooo...........",
-    "..ooo...........",
+    "...oo.....oo....",
+    "..oooo...oooo...",
+    "..oooo....oo....",
+    "...ooo..........",
+    "....o.........oo",
+    "o............ooo",
+    "oo...........ooo",
+    "o.............o.",
+    ".......ooo......",
+    "......ooooo.....",
+    ".oo...ooooo.....",
+    "oooo...ooo......",
+    ".oo.............",
+    ".......ooo......",
+    "......ooooo.....",
 ]
 is_ore = lambda x, y: ORE_MASK[y % N][x % N] == "o"
 
@@ -133,67 +202,73 @@ def stone_base(seed, base, spread, tint=(0, 0, 0)):
         px.append(row)
     return px
 
-def make_ore(path, seed, base, spread, tint=(0, 0, 0)):
+def make_ore(path, seed, matrix, matrix_mix, shadow_index=0):
     """Stone with uranium crystals seated in it.
 
-    Each crystal is lit from its own top-left corner rather than the texture's,
-    so the cluster reads as separate faceted lumps instead of one flat blob, and
-    the stone around it is shadowed so the crystals sit *in* the rock.
-    """
-    px = stone_base(seed, base, spread, tint)
-    nz = noise(seed + 977, passes=1)
+    The rock is vanilla's own greys in vanilla's own proportions; the crystals
+    are a five-step ramp lit from each cluster's top-left, so a cluster reads as
+    faceted lumps rather than one flat blob. Where a crystal overhangs, the rock
+    under it steps one shade darker -- that single darker pixel is what makes
+    the crystals sit *in* the stone instead of on top of it."""
+    idx = rank_quantise(noise(seed, passes=1), matrix_mix)
+    ramp = list(matrix) + URANIUM
+    base = len(matrix)
 
+    # rock shadow under the overhangs, before any crystal is drawn
+    shade_map = [row[:] for row in idx]
     for y in range(N):
         for x in range(N):
             if is_ore(x, y):
                 continue
             touching = [(dx, dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))
                         if is_ore(x + dx, y + dy)]
-            if touching:
-                # deeper shadow where the crystal overhangs the stone
-                deep = any(dx == -1 or dy == -1 for dx, dy in touching)
-                px[y][x] = sh(px[y][x], -26 if deep else -14)
+            if not touching:
+                continue
+            deep = any(dx == -1 or dy == -1 for dx, dy in touching)
+            shade_map[y][x] = max(shadow_index, idx[y][x] - (2 if deep else 1))
 
     for y in range(N):
         for x in range(N):
             if not is_ore(x, y):
                 continue
-            up = is_ore(x, y - 1)
-            down = is_ore(x, y + 1)
-            left = is_ore(x - 1, y)
-            right = is_ore(x + 1, y)
+            up, down = is_ore(x, y - 1), is_ore(x, y + 1)
+            left, right = is_ore(x - 1, y), is_ore(x + 1, y)
+            # A gem is mostly dark with one bright glint -- that contrast is
+            # what makes vanilla's ores read as faceted crystal. Filling the
+            # body with the lit greens instead, as this did at first, turns
+            # every cluster into a soft blob.
             if not up and not left:
-                c = mix(URA_B, URA_S, 0.45)             # lit corner
+                g = 5                                   # specular glint
             elif not up or not left:
-                c = URA_B
+                g = 3                                   # lit facet
             elif not down or not right:
-                c = URA_D                               # shaded underside
+                g = 0                                   # outline, shaded side
             else:
-                c = URA_M if (x + y) % 3 else URA_L     # faceted interior
-            px[y][x] = q(sh(c, int((nz[y][x] - 0.5) * 18)))
-    write_png(path, px)
+                g = 1                                   # dark body
+            shade_map[y][x] = base + g
 
+    write_png(path, paint(shade_map, ramp))
 # ---------------------------------------------------------------- raw uranium
 # A faceted hexagonal crystal, drawn by hand so it reads at 16px.
 RAW_ART = [
     "................",
-    "................",
-    ".....ooooo......",
-    "....obbbbbo.....",
-    "...oblllllbo....",
-    "..obllllllbo....",
-    "..olllllllllo...",
-    ".odmmmmmmmmmdo..",
-    ".odmmmmmmmmmdo..",
-    ".oddmmmmmmmddo..",
-    "..oddmmmmmddo...",
-    "...oddddddddo...",
-    "....oooooooo....",
-    "................",
-    "................",
+    "...ooooo........",
+    "..obbbbbo.......",
+    "..oblllllooo....",
+    ".obllllllbbbo...",
+    ".ollllllllllbo..",
+    ".odmmmlllllllo..",
+    "..odmmmmmlllo...",
+    "..oddmmmmmmmo...",
+    "...oddmmoommmo..",
+    "...oddoo.obblo..",
+    "....oo...obllo..",
+    ".........odmmo..",
+    ".........oddo...",
+    "..........oo....",
     "................",
 ]
-RAW_SPEC = {(5, 4), (6, 4), (4, 5), (5, 5)}
+RAW_SPEC = {(4, 3), (5, 3), (3, 4), (4, 4), (11, 10)}
 
 def make_raw_uranium(path, seed=5):
     r = Rng(seed)
@@ -208,10 +283,11 @@ def make_raw_uranium(path, seed=5):
                 ch = "m"
             if (x, y) in RAW_SPEC:
                 ch = "s"
-            c = PAL[ch]
-            if ch != "o":
-                c = sh(c, int((r.f() - 0.5) * 10))
-            px[y][x] = q(c)
+            # Mottle inside each facet. Vanilla's raw ore items are visibly
+            # rough -- values jump about within a lump -- but they do it over
+            # eight colours, not forty. Speckling along the ramp gets the
+            # roughness without inventing a single new shade.
+            px[y][x] = PAL[ch] if ch == "o" else speckle(PAL[ch], URANIUM, r)
     write_png(path, px)
 
 # ---------------------------------------------------------------- ingot
@@ -260,16 +336,20 @@ def outline_shape(px, col):
 
 # Classic ingot lozenge, tilted low-left to high-right, with mottled green
 # casting and bright highlight streaks along the top face.
+# A shallower bar than the first attempt. Vanilla's ingot runs about two across
+# for every one up; at the 35-degree tilt this used before, the fold between the
+# top and front faces cut the shape corner to corner and it read as a pillow
+# rather than as something cast in a mould.
 INGOT_ART = [
     "................",
     "................",
-    ".........xxx....",
-    "......xxxxxxxx..",
+    "..........xxx...",
+    ".......xxxxxxx..",
     "....xxxxxxxxxxx.",
-    "...xxxxxxxxxxxx.",
-    "..xxxxxxxxxxxxx.",
+    "..xxxxxxxxxxxxxx",
+    ".xxxxxxxxxxxxxxx",
+    ".xxxxxxxxxxxxxx.",
     ".xxxxxxxxxxxxx..",
-    ".xxxxxxxxxxxx...",
     ".xxxxxxxxxxx....",
     "..xxxxxxxxx.....",
     "...xxxxxx.......",
@@ -284,75 +364,74 @@ INGOT_PALE = [(3, 6), (4, 6), (5, 9), (6, 9), (9, 4), (10, 4), (11, 4),
               (3, 8), (7, 8), (12, 5)]
 INGOT_WHITE = [(4, 7), (5, 7), (6, 6), (7, 6), (9, 5), (10, 5), (11, 5)]
 
-URA_PALE = (186, 226, 128, 255)
-URA_WHITE = (243, 255, 236, 255)
+# The ingot used to carry two tones of its own for its glints. They are the top
+# two steps of the shared ramp now -- an ingot has no reason to be lit by a
+# different light than everything else in the mod.
+URA_PALE = URA_B
+URA_WHITE = URA_S
 
 def make_ingot(path, seed=6):
-    solid = lambda x, y: (0 <= x < N and 0 <= y < N and INGOT_ART[y][x] == "x")
-    nz = noise(seed + 5, passes=1)
-    grain = noise(seed + 91, passes=0)          # chunkier patches on top
-    px = [[(0, 0, 0, 0) for _ in range(N)] for _ in range(N)]
+    """A cast bar: two flat faces meeting at a fold, plus a highlight streak.
 
+    Raw ore is rough and wants mottling; an ingot is the opposite -- it has
+    been melted and poured, so vanilla draws it as large areas of a single
+    colour with one bright streak along the top face and a hard fold down to
+    the front. Shading it with a gradient and noise, as this did before, is
+    what made it read as a green pebble rather than a bar of metal."""
+    solid = lambda x, y: (0 <= x < N and 0 <= y < N and INGOT_ART[y][x] == "x")
+
+    # the bar runs low-left to high-right; the fold between its top face and
+    # its front face runs parallel to that, through the middle
+    cx, cy = 7.5, 7.0
+    nx, ny = 0.371, 0.929                       # unit normal, pointing down-right
+
+    px = [[(0, 0, 0, 0) for _ in range(N)] for _ in range(N)]
     for y in range(N):
         for x in range(N):
             if not solid(x, y):
                 continue
-            # lit from the upper left, roughened so the casting looks mottled
-            grad = 1.0 - ((x / 15.0) * 0.42 + (y / 15.0) * 0.58)
-            v = grad * 0.55 + nz[y][x] * 0.28 + grain[y][x] * 0.17
-            if v < 0.20:
-                c = mix(URA_O, URA_D, 0.55)
-            elif v < 0.32:
-                c = URA_D
-            elif v < 0.44:
-                c = mix(URA_D, URA_M, 0.6)
-            elif v < 0.55:
-                c = URA_M
-            elif v < 0.65:
-                c = mix(URA_M, URA_L, 0.6)
-            elif v < 0.76:
-                c = URA_L
-            elif v < 0.86:
-                c = mix(URA_L, URA_PALE, 0.5)
+            d = (x + 0.5 - cx) * nx + (y + 0.5 - cy) * ny
+            if d < -2.6:
+                i = 5                           # highlight streak on the top face
+            elif d < 0.2:
+                i = 4                           # top face
+            elif d < 2.4:
+                i = 2                           # front face
             else:
-                c = URA_PALE
-            if not solid(x, y + 1) or not solid(x + 1, y):
-                c = mix(c, URA_D, 0.55)          # shaded underside
-            px[y][x] = q(c)
+                i = 1                           # shaded lower edge
+            # the two ends of the bar turn away from the light
+            if not solid(x - 1, y) and not solid(x, y - 1):
+                i = min(5, i + 1)
+            elif not solid(x + 1, y) or not solid(x, y + 1):
+                i = max(1, i - 1)
+            px[y][x] = URANIUM[i]
 
-    for (gx, gy) in INGOT_PALE:
-        if solid(gx, gy):
-            px[gy][gx] = q(URA_PALE)
-    for (gx, gy) in INGOT_WHITE:
-        if solid(gx, gy):
-            px[gy][gx] = URA_WHITE
-
-    for y in range(N):                            # dark rim
+    for y in range(N):                          # dark rim
         for x in range(N):
             if solid(x, y) or px[y][x][3]:
                 continue
             if any(solid(x + dx, y + dy)
                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
-                px[y][x] = URA_O
+                px[y][x] = URANIUM[0]
     write_png(path, px)
-
 # ---------------------------------------------------------------- storage blocks
 CHUNKS = [(3.4, 3.2, 3.5), (11.2, 2.8, 3.2), (7.6, 9.4, 3.6),
           (13.6, 10.2, 3.0), (2.4, 12.4, 3.1), (14.6, 15.4, 2.6)]
 
 def make_raw_block(path, seed=3):
-    """Raw ore as vanilla draws it: big rounded nuggets bedded in dark rock.
+    """Raw ore: rounded nuggets bedded in dark rock.
 
-    The previous version shaded by distance-from-centre alone, which made every
-    chunk a flat disc. These are lit from a real surface normal, so each nugget
-    is round, catches a specular near the light and drops a contact shadow onto
-    the matrix under it."""
+    Same lumps as before, but every pixel now snaps to one of six uranium steps
+    or three rock steps. The shading is unchanged in shape and much flatter in
+    tone, which is the difference between a rendered sphere and a drawn one."""
     r = Rng(seed)
-    mx = noise(seed + 17, passes=1)         # matrix mottling
-    lx, ly, lz = -0.55, -0.62, 0.56         # light direction, upper left, toward viewer
+    mx = noise(seed + 17, passes=1)
+    lx, ly, lz = -0.55, -0.62, 0.56
 
-    # nugget centres and radii, tuned to tile: anything crossing an edge is
-    # sampled with wrap-around distance so the block repeats seamlessly
+    ROCK = [(38, 40, 44, 255), (62, 66, 68, 255), (92, 96, 97, 255)]
+    ramp = ROCK + URANIUM
+    base = len(ROCK)
+
     lumps = [(4.0, 3.6, 3.0), (11.6, 2.8, 2.6), (8.2, 9.0, 3.1),
              (14.4, 8.8, 2.3), (2.6, 11.8, 2.6), (12.2, 14.2, 2.5)]
 
@@ -365,105 +444,98 @@ def make_raw_block(path, seed=3):
                 best = (d, dx, dy, rr)
         return best
 
-    px = []
+    idx = []
     for y in range(N):
         row = []
         for x in range(N):
             d, dx, dy, rr = nearest(x + 0.5, y + 0.5)
             if d <= rr:
-                # unit normal of a hemisphere of radius rr
                 nx, ny = dx / rr, dy / rr
                 nz = math.sqrt(max(0.0, 1.0 - nx * nx - ny * ny))
                 lam = nx * lx + ny * ly + nz * lz
-                edge = d / rr
-                if edge > 0.90:
-                    c = URA_O                                   # crisp dark rim
-                elif lam > 0.86:
-                    c = URA_S
-                elif lam > 0.72:
-                    c = mix(URA_B, URA_S, 0.45)
-                elif lam > 0.55:
-                    c = URA_B
-                elif lam > 0.36:
-                    c = URA_L
-                elif lam > 0.16:
-                    c = URA_M
-                elif lam > 0.02:
-                    c = mix(URA_M, URA_D, 0.6)
+                # Same light as the ore's gems: a dark body with the bright
+                # steps kept for the lit edge only. Spreading the ramp evenly
+                # across the nugget, as this did first, makes every lump a pale
+                # blob and stops the raw block matching the ore it came from.
+                if d / rr > 0.90:
+                    g = 0                               # crisp dark rim
+                elif lam > 0.88:
+                    g = 5                               # glint
+                elif lam > 0.68:
+                    g = 4
+                elif lam > 0.44:
+                    g = 3
+                elif lam > 0.18:
+                    g = 2
                 else:
-                    c = URA_D
-                c = sh(c, int((r.f() - 0.5) * 6))
+                    g = 1
+                row.append(base + g)
             else:
-                # rock matrix. It has to stay clearly lighter than the nugget
-                # rims or the gaps read as holes rather than as stone.
-                near = min(1.0, (d - rr) / 1.4)
-                base = mix(MAT_D, MAT_M, mx[y][x])
-                c = mix(mix(MAT_D, MAT_O, 0.45), base, near)
+                # rock: two steps, dropping to the darkest where it tucks under
+                # a nugget, with a little scatter so the seams are not smooth
+                near = (d - rr) / 1.4 + (r.f() - 0.5) * 0.25
+                g = 2 if near > 0.75 else (1 if near > 0.30 else 0)
                 if dx > 0 and dy > 0 and d - rr < 1.1:
-                    c = mix(c, MAT_O, 0.40)                     # contact shadow
-            row.append(q(c))
-        px.append(row)
-    write_png(path, px)
+                    g = max(0, g - 1)                   # contact shadow
+                row.append(min(g, len(ROCK) - 1) if mx[y][x] > 0.28
+                           else max(0, g - 1))
+            idx.append
+        idx.append(row)
+    write_png(path, paint(idx, ramp))
+# Refined metal gets its own tight ramp rather than reusing the crystal one.
+# Vanilla's iron block spans 66 levels of luminance across the whole texture;
+# the crystal ramp spans 200, and drawing a metal plate with it produced a
+# green barcode. Polished metal is nearly flat -- the shape comes from where
+# the small steps fall, not from how far apart they are.
+METAL = [
+    (52, 104, 54, 255),
+    (64, 124, 64, 255),
+    (78, 144, 76, 255),
+    (92, 164, 88, 255),
+    (108, 184, 102, 255),
+    (126, 204, 120, 255),
+]
+
 def make_metal_block(path, seed=4):
-    """Refined metal as a machined plate.
+    """Refined metal, built the way vanilla builds its iron block.
 
-    Two earlier attempts failed the same way: heavy per-pixel noise. At 16x16 a
-    texture has no room for noise *and* structure -- the noise wins and the
-    block reads as static. This keeps the grain very low amplitude and spends
-    the contrast budget on structure instead: a bevelled outer frame, an inset
-    panel with its own bevel, four rivets and one diagonal sheen band."""
-    r = Rng(seed)
+    Vanilla repeats a three-row cycle down the texture -- a bright lip, a flat
+    face, a shadow line -- and each of those rows has its own fixed profile
+    across the width. The lip fades left to right; the face is flat; the
+    shadow steps mid, then darker. Those profiles are written out here rather
+    than computed, because that is what they are in the original: chosen
+    numbers, not a formula. Random variation inside a row breaks the bands and
+    turns the surface to static, which is how the first two attempts failed.
+    """
+    LIP  = [1, 5, 5, 5, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 3, 1]
+    FACE = [1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1]
+    SEAM = [0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 0]
+    CYCLE = [LIP, FACE, SEAM]
 
-    # base plate: quiet vertical brushing, deliberately low contrast
-    px = []
-    for y in range(N):
-        row = []
-        for x in range(N):
-            col = Rng(seed * 7919 + x * 104729).f()
-            v = 0.5 + (col - 0.5) * 0.35 + (r.f() - 0.5) * 0.12
-            row.append(mix(URA_M, URA_L, v))
-        px.append(row)
-
-    def bevel(x0, y0, x1, y1, hi, lo, strength=1.0):
-        """Light the top and left edges of a rectangle, shade bottom and right."""
-        for x in range(x0, x1):
-            px[y0][x] = mix(px[y0][x], hi, strength)
-            px[y1 - 1][x] = mix(px[y1 - 1][x], lo, strength)
-        for y in range(y0, y1):
-            px[y][x0] = mix(px[y][x0], hi, strength * 0.8)
-            px[y][x1 - 1] = mix(px[y][x1 - 1], lo, strength * 0.8)
-
-    # outer frame: two rings, so the block has a raised lip
-    bevel(0, 0, N, N, URA_S, URA_O, 1.0)
-    bevel(1, 1, N - 1, N - 1, URA_B, mix(URA_O, URA_D, 0.5), 0.75)
-
-    # inset panel: darker fill, then bevelled the other way round so it reads
-    # as recessed rather than as a second raised plate
-    for y in range(4, 12):
-        for x in range(4, 12):
-            px[y][x] = mix(px[y][x], URA_D, 0.45)
-    bevel(3, 3, 13, 13, mix(URA_O, URA_D, 0.6), URA_L, 0.85)
-
-    # A faint sheen down the panel diagonal. Kept weak on purpose: at full
-    # strength the stair-stepping of a 45-degree line on a 16px grid reads as a
-    # zigzag decoration rather than as light.
-    for i in (-1, 0, 1):
-        for t in range(4, 12):
-            x, y = t + i, t
-            if 4 <= x < 12 and 4 <= y < 12:
-                px[y][x] = mix(px[y][x], URA_L, 0.12 if i else 0.22)
-
-    # rivets in the frame corners, each a lit dome with a dropped shadow
-    for (bx, by) in ((2, 2), (13, 2), (2, 13), (13, 13)):
-        px[by][bx] = URA_S
-        if by + 1 < N:
-            px[by + 1][bx] = mix(URA_O, URA_D, 0.4)
-
-    write_png(path, [[q(c) for c in row] for row in px])
+    idx = [CYCLE[(y - 1) % 3][:] for y in range(N)]
+    idx[0] = [5] * N                     # lit top edge
+    idx[N - 1] = [0] * N                 # dark bottom edge
+    write_png(path, paint(idx, METAL))
 # ---------------------------------------------------------------- centrifuge
 # A heavy armoured rotor tower. Dark steel with gold trim and green glow
 # panels reads far better at block scale than a pale casing, and the glow is
 # what makes the machine look alive.
+# Surface grain, done the way a pixel artist does it: a pixel either keeps its
+# colour or steps one place along its own ramp. The old `sh(c, random)` invented
+# a brand-new shade for every pixel it touched -- that, more than any shape, is
+# what made these read as generated rather than drawn.
+def speckle(c, ramp, r, up=0.14, down=0.18):
+    try:
+        i = ramp.index(c)
+    except ValueError:
+        return c
+    f = r.f()
+    if f < down:
+        return ramp[max(0, i - 1)]
+    if f > 1.0 - up:
+        return ramp[min(len(ramp) - 1, i + 1)]
+    return c
+
 STEEL_O = (24, 27, 33, 255)
 STEEL_D = (40, 45, 55, 255)
 STEEL_M = (68, 76, 90, 255)
@@ -484,6 +556,11 @@ AMB_D = (128, 68, 10, 255)
 AMB_M = (206, 122, 22, 255)
 AMB_L = (255, 166, 46, 255)
 AMB_H = (255, 216, 136, 255)
+
+STEEL_RAMP = [STEEL_O, STEEL_D, STEEL_M, STEEL_L, STEEL_H]
+GOLD_RAMP = [GOLD_D, GOLD_M, GOLD_L]
+GLOW_RAMP = [GLOW_D, GLOW_M, GLOW_L, GLOW_H]
+MACHINE_RAMPS = STEEL_RAMP + GOLD_RAMP + GLOW_RAMP
 
 TAU = math.pi * 2.0
 
@@ -523,7 +600,7 @@ def _tower_pixel(x, y):
 
 def make_tower(path, seed=71):
     r = Rng(seed)
-    px = [[q(sh(_tower_pixel(x, y), int((r.f() - 0.5) * 8)))
+    px = [[speckle(_tower_pixel(x, y), MACHINE_RAMPS, r)
            for x in range(TOWER_W)] for y in range(TOWER_H)]
     write_png(path, px)
 
@@ -537,9 +614,10 @@ def make_tower_glow(path, seed=72):
             p = x % PANEL
             if WIN_TOP <= y <= WIN_BOT and WIN_L <= p <= WIN_R \
                     and not (y in (WIN_TOP, WIN_BOT) or p in (WIN_L, WIN_R)):
+                # brighter toward the middle of the window, in two steps
                 mid = max(0.0, 1.0 - abs(y - (WIN_TOP + WIN_BOT) / 2.0) / 6.0)
-                row.append(q(sh(mix(GLOW_L, GLOW_H, mid * 0.5),
-                                int((r.f() - 0.5) * 10))))
+                row.append(speckle(GLOW_H if mid > 0.55 else GLOW_L,
+                                   GLOW_RAMP, r))
             else:
                 row.append((0, 0, 0, 0))
         px.append(row)
@@ -550,7 +628,7 @@ ROTOR_N = 32
 def _rotor_top(seed, glow):
     """Top of the housing, seen from above: a rimmed rotor port."""
     r = Rng(seed)
-    px = [[q(sh(STEEL_D, int((r.f() - 0.5) * 8)))
+    px = [[speckle(STEEL_D, STEEL_RAMP, r)
            for _ in range(ROTOR_N)] for _ in range(ROTOR_N)]
     k = ROTOR_N / 16.0
     for y in range(ROTOR_N):
@@ -567,9 +645,15 @@ def _rotor_top(seed, glow):
             elif d > 3.6:
                 px[y][x] = STEEL_O
             else:
-                hot = mix(GLOW_H, GLOW_L, d / 3.6)
-                cold = mix(GLOW_D, STEEL_O, d / 3.6)
-                px[y][x] = q(mix(cold, hot, glow))
+                # Two states of the same port, lit and dark, each picked from
+                # its ramp rather than blended between them: the lit map is a
+                # separate emissive texture, so there is nothing to cross-fade.
+                t = d / 3.6
+                if glow:
+                    px[y][x] = GLOW_H if t < 0.34 else (
+                        GLOW_L if t < 0.70 else GLOW_M)
+                else:
+                    px[y][x] = GLOW_D if t < 0.50 else STEEL_O
     for (bx, by) in ((2, 2), (13, 2), (2, 13), (13, 13)):
         px[by][bx] = STEEL_H
     return px
@@ -617,7 +701,7 @@ def make_base(path, seed=45):
     """Foundation rim. Deliberately plain: the drum nearly fills the footprint,
     so this is a shadow line under it, not a decorated slab."""
     r = Rng(seed)
-    px = [[q(sh(STEEL_O, int((r.f() - 0.5) * 6))) for _ in range(N)] for _ in range(N)]
+    px = [[speckle(STEEL_O, STEEL_RAMP, r) for _ in range(N)] for _ in range(N)]
     for x in range(N):
         px[SKIRT_V0][x] = q(mix(STEEL_M, STEEL_D, 0.4))     # lit top edge
         px[SKIRT_V0 + 1][x] = q(STEEL_D)
@@ -627,7 +711,7 @@ def make_base(path, seed=45):
 def make_foot(path, seed=46):
     """Corner anchor block: heavier steel with a bolt on each face."""
     r = Rng(seed)
-    px = [[q(sh(STEEL_M, int((r.f() - 0.5) * 10))) for _ in range(N)] for _ in range(N)]
+    px = [[speckle(STEEL_M, STEEL_RAMP, r) for _ in range(N)] for _ in range(N)]
     for i in range(N):
         px[0][i] = STEEL_H
         px[i][0] = STEEL_L
@@ -643,7 +727,7 @@ def make_foot(path, seed=46):
 def make_deck(path, seed=64):
     """Foundation top. Only a narrow ring of it is ever visible around the drum."""
     r = Rng(seed)
-    px = [[q(sh(STEEL_D, int((r.f() - 0.5) * 8))) for _ in range(N)] for _ in range(N)]
+    px = [[speckle(STEEL_D, STEEL_RAMP, r) for _ in range(N)] for _ in range(N)]
     for i in range(N):
         px[0][i] = q(STEEL_M)
         px[i][0] = q(STEEL_M)
@@ -653,7 +737,7 @@ def make_deck(path, seed=64):
 
 def make_bottom(path, seed=42):
     r = Rng(seed)
-    px = [[q(sh(STEEL_D, int((r.f() - 0.5) * 10))) for _ in range(N)] for _ in range(N)]
+    px = [[speckle(STEEL_D, STEEL_RAMP, r) for _ in range(N)] for _ in range(N)]
     for i in range(N):
         px[0][i] = STEEL_M
         px[i][0] = STEEL_M
@@ -872,12 +956,21 @@ def poly(m, pts, ch):
             if in_poly(x + 0.5, y + 0.5, pts):
                 m[y][x] = ch
 
-def shade_mask(m, ramps, seed=1, outline=URA_O):
+# Ramps the sprite masks index into. Kept above shade_mask deliberately:
+# constants that sit *below* a function are the ones that get swallowed when
+# the function is rewritten.
+URA_RAMP = URANIUM
+DEP_RAMP = [DEP_O, DEP_D, DEP_M, DEP_L, DEP_B]
+WOOD_RAMP = [WOOD_D, WOOD_M, WOOD_L]
+MET_RAMP = [MET_O, MET_D, MET_M, MET_L, MET_H]
+
+def shade_mask(m, ramps, seed=1, outline=None):
     """Light a character mask from the upper left and rim it with an outline.
 
-    ramps maps each character to a list of colours, darkest first. The shade
-    index comes from a lighting term, so a shape is lit by where it sits in its
-    own silhouette rather than by where it sits in the sprite."""
+    Works entirely in ramp indices. The earlier version blended toward a
+    darker colour for undersides, which quietly doubled the palette of every
+    sprite; stepping the index down one instead costs nothing and keeps the
+    sprite inside the colours it declared."""
     r = Rng(seed)
     px = [[(0, 0, 0, 0) for _ in range(N)] for _ in range(N)]
     filled = lambda x, y: (0 <= x < N and 0 <= y < N and m[y][x] != ".")
@@ -888,46 +981,40 @@ def shade_mask(m, ramps, seed=1, outline=URA_O):
             if ch == ".":
                 continue
             ramp = ramps[ch]
-            # distance to the unlit side of this shape, normalised
+            top = len(ramp) - 1
             open_up = sum(1 for d in range(1, 4) if not filled(x - d, y - d))
             open_dn = sum(1 for d in range(1, 4) if not filled(x + d, y + d))
             lam = 0.5 + (open_up - open_dn) * 0.16 + (r.f() - 0.5) * 0.12
-            idx = int(min(len(ramp) - 1, max(0, round(lam * (len(ramp) - 1)))))
-            c = ramp[idx]
+            i = min(top, max(0, round(lam * top)))
             if not filled(x, y + 1) or not filled(x + 1, y):
-                c = mix(c, ramp[0], 0.5)
-            px[y][x] = q(c)
+                i = max(0, i - 1)                       # shaded underside
+            px[y][x] = ramp[i]
 
-    for y in range(N):                                  # outline
+    rim = outline if outline is not None else URANIUM[0]
+    for y in range(N):
         for x in range(N):
             if filled(x, y) or px[y][x][3]:
                 continue
             if any(filled(x + dx, y + dy)
                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
-                px[y][x] = outline
+                px[y][x] = rim
     return px
-
-URA_RAMP = [URA_O, URA_D, URA_M, URA_L, URA_B, URA_S]
-DEP_RAMP = [DEP_O, DEP_D, DEP_M, DEP_L, DEP_B]
-WOOD_RAMP = [WOOD_D, WOOD_M, WOOD_L]
-
 # ---- isotopes -----------------------------------------------------------
 
 def make_pellet(path, ramp, seed, glow=None):
     """A short cylindrical pellet seen slightly from above.
 
-    Built as a rectangle capped with two ellipses rather than with discs: a
-    disc wide enough to cap the body also bulges past its sides, which is what
-    turned the first attempt into a lumpy blob instead of a cylinder."""
+    Barrel shading runs in vertical bands (brightness depends only on how far
+    across the cylinder a pixel sits) and the top is a flat ellipse two steps
+    up. Both pick indices, so the whole sprite lives in `ramp`."""
     RX, TOP, BOT = 3.6, 4.4, 11.6
+    top = len(ramp) - 1
     m = blank()
     poly(m, [(8.0 - RX, TOP), (8.0 + RX, TOP), (8.0 + RX, BOT), (8.0 - RX, BOT)], "x")
     ellipse(m, 8.0, TOP, RX, 1.9, "x")
     ellipse(m, 8.0, BOT, RX, 1.9, "x")
     px = shade_mask(m, {"x": ramp}, seed, outline=ramp[0])
 
-    # relight the body as a cylinder: brightness depends only on how far across
-    # the barrel a pixel is, so the shading runs in vertical bands
     for y in range(N):
         for x in range(N):
             if not px[y][x][3] or not (TOP - 2.4 < y + 0.5 < BOT + 2.4):
@@ -936,30 +1023,25 @@ def make_pellet(path, ramp, seed, glow=None):
             if abs(u) > 1.0:
                 continue
             lam = 0.72 - u * 0.62 - u * u * 0.30
-            idx = int(min(len(ramp) - 1, max(0, round(lam * (len(ramp) - 1)))))
-            px[y][x] = q(ramp[idx])
+            px[y][x] = ramp[min(top, max(0, round(lam * top)))]
 
-    # top face: an ellipse lit flat, a shade brighter than the barrel so the
-    # pellet reads as standing up
-    for y in range(N):
+    for y in range(N):                                  # flat lit top face
         for x in range(N):
             dx, dy = (x + 0.5 - 8.0) / RX, (y + 0.5 - TOP) / 1.9
             if dx * dx + dy * dy <= 1.0 and px[y][x][3]:
-                edge = math.hypot(dx, dy)
-                px[y][x] = q(mix(ramp[-1], ramp[-2], edge))
+                px[y][x] = ramp[top if math.hypot(dx, dy) < 0.62 else top - 1]
 
-    # crisp the silhouette back up after the relight
-    for y in range(N):
+    for y in range(N):                                  # re-crisp the rim
         for x in range(N):
             if not px[y][x][3]:
                 continue
             if any(not (0 <= x + dx < N and 0 <= y + dy < N and px[y + dy][x + dx][3])
                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
-                px[y][x] = q(mix(px[y][x], ramp[0], 0.55))
+                px[y][x] = ramp[0]
 
     if glow:
         for (gx, gy) in glow:
-            px[gy][gx] = URA_WHITE
+            px[gy][gx] = ramp[top]
     write_png(path, px)
 def make_fuel_cell(path, seed=31):
     """A sealed rod: steel casing with a viewing window onto the charge."""
@@ -1115,8 +1197,9 @@ def upscale(px, f):
     return [[px[y // f][x // f] for x in range(len(px[0]) * f)]
             for y in range(len(px) * f)]
 
-make_ore(f"{RES}/textures/block/uranium_ore.png", 20240001, 128, 20)
-make_ore(f"{RES}/textures/block/deepslate_uranium_ore.png", 20240002, 84, 15, tint=(-2, -2, 5))
+make_ore(f"{RES}/textures/block/uranium_ore.png", 20240001, STONE, STONE_MIX)
+make_ore(f"{RES}/textures/block/deepslate_uranium_ore.png", 20240002,
+         DEEPSLATE, DEEPSLATE_MIX)
 make_raw_block(f"{RES}/textures/block/raw_uranium_block.png")
 make_metal_block(f"{RES}/textures/block/uranium_block.png")
 make_raw_uranium(f"{RES}/textures/item/raw_uranium.png")

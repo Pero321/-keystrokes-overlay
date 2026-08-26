@@ -299,17 +299,54 @@ regenerate everything:
 python3 tools/gen_textures.py
 ```
 
+### Working in palette indices
+
+Generating textures has one characteristic failure: it is easy to write code
+that blends two colours to taste, and a 16×16 texture drawn that way ends up
+with forty-odd near-identical shades. That, more than any shape, is what makes
+a texture look machine-made. Measured against the game's own art:
+
+| | colours | top 4 shades cover |
+| --- | --- | --- |
+| Vanilla blocks (emerald ore, iron block, raw iron block) | 7–12 | 67–82% |
+| Vanilla items (iron ingot, raw iron, diamond pickaxe) | 8–11 | 63–75% |
+| This mod, before | 11–46 | 20–71% |
+| This mod, now | 5–12 | 57–94% |
+
+So the generators pick a palette **index**, never a colour. `URANIUM` is six
+steps and nothing blends between them; surface grain comes from stepping one
+place along the ramp rather than from a random brightness offset. Budgets live
+in `tools/texture_budget.py` and are enforced twice — once as the generator
+writes each file, and again by `tools/validate_assets.py` against what actually
+shipped, so a hand-edited png cannot slip past either.
+
+The structure follows the game's own idioms rather than being invented:
+
+- **Ore** is vanilla's stone greys in vanilla's own histogram (`rank_quantise`
+  ranks the noise and cuts it to a fixed tonal mix), with crystals that are
+  mostly dark and carry one bright glint. Filling a cluster with the lit greens
+  instead turns every gem into a soft blob.
+- **Refined metal** is a three-row cycle — bright lip, flat face, shadow line —
+  each row with a fixed profile across the width. Vanilla's iron block spans 66
+  levels of luminance; drawing a plate with the crystal ramp spans 200 and
+  produces a green barcode, which is exactly what the first two attempts did.
+- **Raw ore items** are visibly rough, so they mottle; an **ingot** has been
+  melted and poured, so it is flat faces meeting at a hard fold. Shading the
+  ingot with a gradient made it read as a pebble.
+
 Helper scripts alongside it:
 
 | Script | What it does |
 | --- | --- |
 | `tools/gen_textures.py` | Generates every texture, the animation strips and the GUI sheet |
-| `tools/validate_assets.py` | Walks blockstates → models → textures and fails if any reference doesn't resolve, or an animation strip isn't a whole number of frames |
+| `tools/validate_assets.py` | Walks blockstates → models → textures and fails if any reference doesn't resolve, an animation strip isn't a whole number of frames, an equipment layer names a texture that isn't there, or a texture is over its colour budget |
 | `tools/preview_textures.py` | Contact sheet of the block and item textures |
 | `tools/preview_gui.py` | Mocks up the live centrifuge screen from the GUI sheet |
 | `tools/render_model.py` | Software-renders a block model to a PNG, so geometry can be checked without launching the game |
 | `tools/preview_centrifuge.py` | Renders the baked plinth *plus* the renderer's generated tower, at a given spin and heat |
 | `tools/check_render_buffers.py` | Catches stale `VertexConsumer` writes in block entity renderers |
+| `tools/texture_budget.py` | Per-texture colour budgets, read by both the generator and the validator |
+| `tools/png_read.py` | Minimal PNG reader, so the validator can inspect what shipped |
 | `tools/gen_centrifuge_model.py` | Builds the centrifuge's multi-element model |
 | `tools/verify_worldgen.py` | Counts placed blocks in a generated world |
 | `tools/test/run.sh` | Runs the standalone logic tests (plain javac, no Gradle, no game) |

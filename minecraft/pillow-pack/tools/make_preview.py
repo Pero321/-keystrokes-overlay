@@ -39,7 +39,8 @@ def main():
         x = gap + i * (cell + gap)
         sheet.rect(x - 2, gap - 2, x + cell + 1, gap + cell + 1, GRID)
         sheet.rect(x, gap, x + cell - 1, gap + cell - 1, BG)
-        paste(sheet, pillow_canvas(PALETTES[tier]).scaled(8), x, gap)
+        pil = pillow_canvas(PALETTES[tier])
+        paste(sheet, pil.scaled(cell // pil.w), x, gap)
 
     # row 2: the Zzz particles
     y = gap + cell + gap

@@ -90,6 +90,50 @@ class Canvas:
         print("  wrote", os.path.relpath(path, ROOT))
 
 
+def read_png(path):
+    """Read back one of our own RGBA PNGs (8-bit, non-interlaced)."""
+    data = open(path, "rb").read()
+    assert data[:8] == b"\x89PNG\r\n\x1a\n", path
+    i, idat, w, h = 8, b"", 0, 0
+    while i < len(data):
+        ln = struct.unpack(">I", data[i:i + 4])[0]
+        tag = data[i + 4:i + 8]
+        if tag == b"IHDR":
+            w, h = struct.unpack(">II", data[i + 8:i + 16])
+        elif tag == b"IDAT":
+            idat += data[i + 8:i + 8 + ln]
+        i += 12 + ln
+    raw = zlib.decompress(idat)
+    out, stride, prev, pos = [], w * 4, bytearray(w * 4), 0
+    for _ in range(h):
+        filt = raw[pos]
+        pos += 1
+        line = bytearray(raw[pos:pos + stride])
+        pos += stride
+        for x in range(stride):
+            a = line[x - 4] if x >= 4 else 0
+            b = prev[x]
+            c = prev[x - 4] if x >= 4 else 0
+            if filt == 1:
+                line[x] = (line[x] + a) & 255
+            elif filt == 2:
+                line[x] = (line[x] + b) & 255
+            elif filt == 3:
+                line[x] = (line[x] + (a + b) // 2) & 255
+            elif filt == 4:
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
+                line[x] = (line[x] + pr) & 255
+        out.append([tuple(line[x * 4:x * 4 + 4]) for x in range(w)])
+        prev = line
+    return w, h, out
+
+
+def lerp(c0, c1, t):
+    t = max(0.0, min(1.0, t))
+    return tuple(int(round(c0[i] + (c1[i] - c0[i]) * t)) for i in range(3)) + (255,)
+
+
 def outline(canvas, color):
     """Add a 1px border around every opaque pixel (8-neighbourhood)."""
     edges = []
@@ -158,38 +202,71 @@ PALETTES = {
     "netherite": ((22, 18, 22, 255),   (50, 44, 49, 255),    (74, 67, 72, 255),    (107, 97, 105, 255),  (198, 162, 92, 255)),
 }
 
-# Rounded, puffy silhouette: (row, x_start, x_end)
-PILLOW_ROWS = [
-    (3, 3, 12),
-    (4, 2, 13),
-    (5, 1, 14),
-    (6, 1, 14),
-    (7, 1, 14),
-    (8, 1, 14),
-    (9, 1, 14),
-    (10, 1, 14),
-    (11, 2, 13),
-    (12, 3, 12),
-]
+MASK_PNG = os.path.join(ROOT, "art", "pillow_mask.png")
+SIZE = 64          # item textures are 64x64: the pillow is traced from real
+                   # artwork, and its pinched corners vanish below that.
 
 
-def pillow_canvas(palette):
+def load_mask(size):
+    """Downsample art/pillow_mask.png to `size` and split it into its parts.
+
+    Alpha holds the pillow body, the red channel holds the fold. A block is
+    kept when at least a third of the source pixels under it are set, which
+    preserves the one-pixel-wide crease instead of averaging it away.
+    """
+    w, h, rows = read_png(MASK_PNG)
+    step = w // size
+    body, crease = set(), set()
+    for y in range(size):
+        for x in range(size):
+            b = c = 0
+            for dy in range(step):
+                for dx in range(step):
+                    px = rows[y * step + dy][x * step + dx]
+                    if px[3] > 128:
+                        b += 1
+                    if px[0] > 128:
+                        c += 1
+            if b * 3 >= step * step:
+                body.add((x, y))
+            if c * 3 >= step * step:
+                crease.add((x, y))
+    return body, crease
+
+
+def pillow_canvas(palette, size=SIZE):
     edge, shadow, base, light, stitch = palette
-    c = Canvas(16, 16)
+    body, crease = load_mask(size)
+    c = Canvas(size, size)
 
-    # flat silhouette, then a diagonal light source from the top-left so the
-    # pillow reads as soft and puffy rather than as a flat brick
-    for y, x0, x1 in PILLOW_ROWS:
-        for x in range(x0, x1 + 1):
-            tone = x + y
-            c.set(x, y, light if tone <= 13 else (shadow if tone >= 20 else base))
+    xs = [p[0] for p in body]
+    ys = [p[1] for p in body]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    span_x, span_y = max(1, x1 - x0), max(1, y1 - y0)
 
-    # pinched corner tufts
-    for (tx, ty) in ((3, 3), (12, 3), (3, 12), (12, 12)):
-        c.set(tx, ty, shadow)
+    # Diagonal light from the top-left: light -> base -> shadow.
+    for (x, y) in body:
+        t = (x - x0) / span_x + (y - y0) / span_y      # 0 .. 2
+        c.set(x, y, lerp(light, base, t) if t <= 1 else lerp(base, shadow, t - 1))
 
-    # embroidered "z"
-    draw_z(c, 5, 5, 5, stitch)
+    # Darken the rim so the pillow reads as stuffed rather than as a decal.
+    deep = lerp(shadow, edge, 0.45)
+    for (x, y) in body:
+        for (dx, dy) in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            if (x + dx, y + dy) not in body:
+                c.set(x, y, lerp(c.get(x, y), deep, 0.38))
+                break
+
+    # The fold the icon punches out of the silhouette, drawn as a seam.
+    for (x, y) in crease:
+        c.set(x, y, lerp(c.get(x, y), deep, 0.8))
+    for (x, y) in crease:
+        if (x + 1, y) in body and (x + 1, y) not in crease:
+            c.set(x + 1, y, lerp(c.get(x + 1, y), light, 0.5))
+
+    # Embroidered "z", on the open side away from the fold.
+    glyph = max(5, int(span_y * 0.42)) | 1          # keep it odd
+    draw_z(c, int(x0 + span_x * 0.50), int(y0 + span_y * 0.30), glyph, stitch)
 
     outline(c, edge)
     return c
@@ -236,7 +313,7 @@ def main():
 
     print("pack icon:")
     icon = Canvas(128, 128)
-    pillow = pillow_canvas(PALETTES["diamond"]).scaled(8)
+    pillow = pillow_canvas(PALETTES["diamond"]).scaled(128 // SIZE)
     for y in range(128):
         for x in range(128):
             if pillow.px[y][x][3]:

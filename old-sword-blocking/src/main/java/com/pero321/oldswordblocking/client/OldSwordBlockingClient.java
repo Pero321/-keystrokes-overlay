@@ -1,0 +1,79 @@
+package com.pero321.oldswordblocking.client;
+
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.pero321.oldswordblocking.OldSwordBlocking;
+import com.pero321.oldswordblocking.config.ConfigManager;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.text.Text;
+import org.lwjgl.glfw.GLFW;
+
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
+
+public class OldSwordBlockingClient implements ClientModInitializer {
+
+    private static KeyBinding toggleKey;
+
+    @Override
+    public void onInitializeClient() {
+        ConfigManager.load();
+
+        // Unbound by default so it can never fight with an existing key.
+        toggleKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.oldswordblocking.toggle",
+                GLFW.GLFW_KEY_UNKNOWN,
+                KeyBinding.Category.GAMEPLAY));
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (toggleKey.wasPressed()) {
+                boolean now = !ConfigManager.get().enabled;
+                ConfigManager.get().enabled = now;
+                ConfigManager.save();
+                if (!now) {
+                    BlockingState.reset();
+                }
+                if (client.player != null) {
+                    client.player.sendMessage(Text.translatable(
+                            now ? "text.oldswordblocking.enabled" : "text.oldswordblocking.disabled"), true);
+                }
+            }
+            BlockingState.tick(client);
+        });
+
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> dispatcher.register(buildCommand()));
+
+        OldSwordBlocking.LOGGER.info("Old Sword Blocking ready (client side only, no packets are sent)");
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> buildCommand() {
+        return literal("oldswordblock")
+                .executes(context -> status(context.getSource()))
+                .then(literal("status").executes(context -> status(context.getSource())))
+                .then(literal("toggle").executes(context -> {
+                    boolean now = !ConfigManager.get().enabled;
+                    ConfigManager.get().enabled = now;
+                    ConfigManager.save();
+                    if (!now) {
+                        BlockingState.reset();
+                    }
+                    return status(context.getSource());
+                }))
+                .then(literal("reload").executes(context -> {
+                    ConfigManager.load();
+                    BlockingState.reset();
+                    context.getSource().sendFeedback(Text.translatable("text.oldswordblocking.reloaded"));
+                    return 1;
+                }));
+    }
+
+    private static int status(FabricClientCommandSource source) {
+        source.sendFeedback(Text.translatable(ConfigManager.get().enabled
+                ? "text.oldswordblocking.enabled"
+                : "text.oldswordblocking.disabled"));
+        return 1;
+    }
+}

@@ -1,0 +1,6 @@
+{
+  "key.oldswordblocking.toggle": "Блок мечом: вкл./выкл.",
+  "text.oldswordblocking.enabled": "Блок мечом: включён",
+  "text.oldswordblocking.disabled": "Блок мечом: выключен",
+  "text.oldswordblocking.reloaded": "Конфиг блока мечом перезагружен"
+}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "oldswordblocking",
+  "version": "${version}",
+  "name": "Old Sword Blocking",
+  "description": "Brings back the pre-1.9 sword block pose. Hold right click with a sword and your sword goes up, exactly like 1.8. Client side and cosmetic only: nothing is sent to the server, so it works anywhere and changes no gameplay.",
+  "authors": [
+    "pero321"
+  ],
+  "contact": {
+    "sources": "https://github.com/Pero321/-keystrokes-overlay"
+  },
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.pero321.oldswordblocking.client.OldSwordBlockingClient"
+    ]
+  },
+  "mixins": [
+    {
+      "config": "oldswordblocking.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

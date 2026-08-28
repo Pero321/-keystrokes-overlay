@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "oldswordblocking-gametest",
+  "version": "1.0.0",
+  "name": "Old Sword Blocking Game Test",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": [
+      "com.pero321.oldswordblocking.gametest.SwordBlockGameTest"
+    ]
+  },
+  "depends": {
+    "oldswordblocking": "*"
+  }
+}

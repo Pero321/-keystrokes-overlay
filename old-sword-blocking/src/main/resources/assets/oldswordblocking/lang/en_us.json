@@ -1,0 +1,6 @@
+{
+  "key.oldswordblocking.toggle": "Toggle sword blocking",
+  "text.oldswordblocking.enabled": "Sword blocking: on",
+  "text.oldswordblocking.disabled": "Sword blocking: off",
+  "text.oldswordblocking.reloaded": "Sword blocking config reloaded"
+}

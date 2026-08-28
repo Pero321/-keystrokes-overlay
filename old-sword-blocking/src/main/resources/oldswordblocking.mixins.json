@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com.pero321.oldswordblocking.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "HeldItemRendererMixin",
+    "PlayerEntityRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

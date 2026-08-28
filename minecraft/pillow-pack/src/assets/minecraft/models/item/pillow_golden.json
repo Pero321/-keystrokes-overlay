@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/pillow",
+  "textures": {
+    "layer0": "minecraft:item/pillow_golden"
+  }
+}

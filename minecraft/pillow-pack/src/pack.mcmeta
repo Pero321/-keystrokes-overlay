@@ -1,0 +1,12 @@
+{
+  "pack": {
+    "pack_format": 75,
+    "supported_formats": { "min_inclusive": 64, "max_inclusive": 99 },
+    "description": [
+      { "text": "Sleepy Pillows", "color": "aqua", "bold": true },
+      { "text": "\n" },
+      { "text": "Мечі → подушки · удари → ", "color": "gray" },
+      { "text": "Zzz", "color": "white", "italic": true }
+    ]
+  }
+}

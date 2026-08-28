@@ -6,3 +6,7 @@ build/config.json
 *.user
 *.suo
 .vs/
+
+# python bytecode from the resource-pack tools
+__pycache__/
+*.pyc

@@ -120,21 +120,61 @@ public class GearHud implements HudElement {
             return;
         }
 
-        int cell = ICON + GAP;
-        int width = shown.size() * cell - GAP;
-        int height = ICON + BAR_GAP + BAR_HEIGHT
-                + (config.showPercent ? BAR_GAP + client.textRenderer.fontHeight : 0);
-
         HudAnchor anchor = HudAnchor.parse(config.gearAnchor);
-        int left = anchor.x(context, width, config.gearOffsetX + HudTheme.PADDING);
-        int top = anchor.y(context, height, config.gearOffsetY + HudTheme.PADDING);
+        boolean vertical = !"HORIZONTAL".equalsIgnoreCase(config.gearLayout);
+
+        int labelWidth = 0;
+        if (config.showDurabilityNumbers) {
+            for (ItemStack stack : shown) {
+                labelWidth = Math.max(labelWidth, client.textRenderer.getWidth(label(stack, config)));
+            }
+        }
+
+        int rowHeight = ICON + (config.showBar ? BAR_GAP + BAR_HEIGHT : 0);
+        int width;
+        int height;
+        if (vertical) {
+            width = ICON + (labelWidth > 0 ? labelWidth + GAP : 0);
+            height = shown.size() * (rowHeight + GAP) - GAP;
+        } else {
+            int cell = Math.max(ICON, labelWidth) + GAP;
+            width = shown.size() * cell - GAP;
+            height = rowHeight + (labelWidth > 0 ? BAR_GAP + client.textRenderer.fontHeight : 0);
+        }
+
+        int left = anchor.x(context, width, config.gearOffsetX + (config.background ? HudTheme.PADDING : 0));
+        int top = anchor.y(context, height, config.gearOffsetY + (config.background ? HudTheme.PADDING : 0));
 
         if (config.background) {
             HudTheme.panel(context, left, top, width, height);
         }
 
         for (int i = 0; i < shown.size(); i++) {
-            drawPiece(context, client, shown.get(i), left + i * cell, top, config);
+            ItemStack stack = shown.get(i);
+            if (vertical) {
+                int y = top + i * (rowHeight + GAP);
+                // On the right the icons hug the edge and the numbers sit inside them, and the
+                // other way round on the left, so the column always reads towards the screen.
+                int iconX = anchor.isRightAligned() ? left + width - ICON : left;
+                int labelX = anchor.isRightAligned() ? left : left + ICON + GAP;
+                drawPiece(context, client, stack, iconX, y, config);
+                if (labelWidth > 0) {
+                    String text = label(stack, config);
+                    int x = anchor.isRightAligned() ? labelX + labelWidth - client.textRenderer.getWidth(text) : labelX;
+                    context.drawTextWithShadow(client.textRenderer, text, x,
+                            y + (ICON - client.textRenderer.fontHeight) / 2 + 1, numberColor(stack, config));
+                }
+            } else {
+                int cell = Math.max(ICON, labelWidth) + GAP;
+                int x = left + i * cell;
+                drawPiece(context, client, stack, x + (Math.max(ICON, labelWidth) - ICON) / 2, top, config);
+                if (labelWidth > 0) {
+                    String text = label(stack, config);
+                    int labelX = x + (Math.max(ICON, labelWidth) - client.textRenderer.getWidth(text)) / 2;
+                    context.drawTextWithShadow(client.textRenderer, text, labelX,
+                            top + rowHeight + BAR_GAP, numberColor(stack, config));
+                }
+            }
         }
     }
 
@@ -145,18 +185,13 @@ public class GearHud implements HudElement {
 
         context.drawItem(stack, x, top);
 
-        int barY = top + ICON + BAR_GAP;
-        context.fill(x, barY, x + ICON, barY + BAR_HEIGHT, BAR_BACKGROUND);
-        int filled = Math.round(ICON * percent / 100.0F);
-        if (filled > 0) {
-            context.fill(x, barY, x + filled, barY + BAR_HEIGHT, HudTheme.forPercent(percent));
-        }
-
-        if (config.showPercent) {
-            String label = percent + "%";
-            int labelX = x + (ICON - client.textRenderer.getWidth(label)) / 2;
-            context.drawTextWithShadow(client.textRenderer, label, labelX,
-                    barY + BAR_HEIGHT + BAR_GAP, low ? HudTheme.BAD : HudTheme.LABEL);
+        if (config.showBar) {
+            int barY = top + ICON + BAR_GAP;
+            context.fill(x, barY, x + ICON, barY + BAR_HEIGHT, BAR_BACKGROUND);
+            int filled = Math.round(ICON * percent / 100.0F);
+            if (filled > 0) {
+                context.fill(x, barY, x + filled, barY + BAR_HEIGHT, HudTheme.forPercent(percent));
+            }
         }
 
         if (low) {
@@ -165,10 +200,20 @@ public class GearHud implements HudElement {
             float pulse = 0.5F + 0.5F * MathHelper.sin(
                     (client.player.age + client.getRenderTickCounter().getTickProgress(false)) * 0.3F);
             int alpha = MathHelper.clamp(90 + (int) (pulse * 165.0F), 0, 255);
-            context.fill(x + ICON - 5, top - 1, x + ICON + 1, top + 6, (alpha / 2 << 24));
             context.drawTextWithShadow(client.textRenderer, "!", x + ICON - 3, top,
                     (alpha << 24) | (HudTheme.BAD & 0x00FFFFFF));
         }
+    }
+
+    /** The durability actually left, which is what you want to know, not how broken it is. */
+    private static String label(ItemStack stack, ModConfig.HudConfig config) {
+        int left = stack.getMaxDamage() - stack.getDamage();
+        return config.showMaxDurability ? left + "/" + stack.getMaxDamage() : String.valueOf(left);
+    }
+
+    private static int numberColor(ItemStack stack, ModConfig.HudConfig config) {
+        int percent = percentLeft(stack);
+        return percent <= config.warnBelowPercent ? HudTheme.BAD : HudTheme.forPercent(percent);
     }
 
     private static boolean isTracked(ItemStack stack) {

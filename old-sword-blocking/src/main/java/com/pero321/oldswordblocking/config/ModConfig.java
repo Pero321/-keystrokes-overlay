@@ -100,27 +100,37 @@ public class ModConfig {
     }
 
     public static class HudConfig {
-        /** The soft panel behind each widget. Turn it off for bare text. */
-        public boolean background = true;
+        /** A soft panel behind each widget. Off by default: bare text sits lighter on the screen. */
+        public boolean background = false;
 
         public boolean showFps = true;
         public boolean showPing = true;
         /** TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT or BOTTOM_RIGHT. */
-        public String infoAnchor = "TOP_LEFT";
+        public String infoAnchor = "TOP_RIGHT";
         /** Distance inwards from that corner, in pixels. */
         public int infoOffsetX = 4;
         public int infoOffsetY = 4;
 
         /** Armour and held tools with a durability bar under each. */
         public boolean showGear = true;
-        public String gearAnchor = "BOTTOM_LEFT";
+        public String gearAnchor = "TOP_RIGHT";
         public int gearOffsetX = 4;
-        public int gearOffsetY = 4;
+        /** Clear of the fps line by default, so the two stack into one column. */
+        public int gearOffsetY = 18;
+
+        /** VERTICAL stacks the pieces down the side; HORIZONTAL lays them out in a row. */
+        public String gearLayout = "VERTICAL";
         /** Hide pieces that are still at full durability. */
         public boolean onlyDamagedGear = false;
 
-        /** Add a percentage under each bar. Off by default: the bars already say it, smaller. */
-        public boolean showPercent = false;
+        /** The durability actually left on each piece, as a number, beside its icon. */
+        public boolean showDurabilityNumbers = true;
+
+        /** Add the maximum too, as "312/363". */
+        public boolean showMaxDurability = false;
+
+        /** The small durability bar. Redundant once the numbers are on, so off by default. */
+        public boolean showBar = false;
         public boolean includeOffHand = true;
 
         /** At or below this much durability left, the piece gets a warning mark. */

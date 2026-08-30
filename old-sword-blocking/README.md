@@ -81,20 +81,22 @@ already says both, and while any screen is open.
 
 ### Gear durability, with a warning
 
-A small strip of your armour and held tools: the icon, a durability bar under it, and nothing else
-until it matters. Anything that drops into the danger zone gets a pulsing red badge in the corner
-of its icon and, **once**, a line in chat naming the piece — so a helmet never quietly pops mid
-fight. A repair or a swap arms the warning again. Turn on `hud.showPercent` if you want the numbers
-as well.
+A column down the right edge, under the fps line: the durability **actually left** on each piece of
+armour and each held tool, next to its icon, coloured by how much of it there is. Points left, not
+a percentage — that is the number you act on.
 
-Both widgets sit in a soft panel so they read as one piece of UI; `hud.background` turns it off for
-bare text.
+Anything that drops into the danger zone gets a pulsing red badge in the corner of its icon and,
+**once**, a line in chat naming the piece — so a helmet never quietly pops mid fight. A repair or a
+swap arms the warning again.
+
+Both widgets sit bare on the screen by default. `hud.background` puts a soft panel behind them,
+`hud.gearLayout` switches the column back to a row, and every corner is a `hud.*Anchor` away.
 
 ## Install
 
 1. [Fabric Loader](https://fabricmc.net/use/installer/) 0.19.3 or newer, for Minecraft 1.21.11.
 2. [Fabric API](https://modrinth.com/mod/fabric-api) for 1.21.11 into `mods/`.
-3. **[dist/old-sword-blocking-1.2.0.jar](dist/old-sword-blocking-1.2.0.jar)** into `mods/`
+3. **[dist/old-sword-blocking-1.3.0.jar](dist/old-sword-blocking-1.3.0.jar)** into `mods/`
    (use the *Download raw file* button on GitHub).
 
 Java 21 or newer, same as 1.21.11 itself.
@@ -150,15 +152,19 @@ leaves a streak.
 
 | Key | Default | What it does |
 |---|---|---|
-| `background` | `true` | The soft panel behind each widget |
+| `background` | `false` | A soft panel behind each widget |
 | `showFps`, `showPing` | `true` | |
-| `infoAnchor` | `TOP_LEFT` | `TOP_LEFT`, `TOP_RIGHT`, `BOTTOM_LEFT` or `BOTTOM_RIGHT` |
+| `infoAnchor` | `TOP_RIGHT` | `TOP_LEFT`, `TOP_RIGHT`, `BOTTOM_LEFT` or `BOTTOM_RIGHT` |
 | `infoOffsetX/Y` | `4` | Pixels inwards from that corner |
-| `showGear` | `true` | The armour and tool strip |
-| `gearAnchor` | `BOTTOM_LEFT` | |
-| `gearOffsetX/Y` | `4` | |
+| `showGear` | `true` | The armour and tool column |
+| `gearAnchor` | `TOP_RIGHT` | |
+| `gearOffsetX` | `4` | |
+| `gearOffsetY` | `18` | Clear of the fps line, so the two stack into one column |
+| `gearLayout` | `VERTICAL` | `VERTICAL` down the side, or `HORIZONTAL` in a row |
 | `onlyDamagedGear` | `false` | Hide pieces still at full durability |
-| `showPercent` | `false` | Add a percentage under each bar |
+| `showDurabilityNumbers` | `true` | The durability left, as a number, beside each icon |
+| `showMaxDurability` | `false` | Show the maximum too, as `312/363` |
+| `showBar` | `false` | The small durability bar. Redundant once the numbers are on |
 | `includeOffHand` | `true` | |
 | `warnBelowPercent` | `15` | At or below this, a piece gets the exclamation mark |
 | `warnInChat` | `true` | The one off chat line naming the piece |

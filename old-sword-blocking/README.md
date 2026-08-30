@@ -85,9 +85,11 @@ A column in the bottom right corner: the durability **actually left** on each pi
 each held tool, next to its icon, coloured by how much of it there is. Points left, not a
 percentage — that is the number you act on.
 
-Anything that drops into the danger zone gets a pulsing red badge in the corner of its icon and,
-**once**, a line in chat naming the piece — so a helmet never quietly pops mid fight. A repair or a
-swap arms the warning again.
+Anything that drops into the danger zone gets a pulsing red badge in the corner of its icon, starts
+**shaking in short bursts**, and gets **one** line in chat naming the piece — so a helmet never
+quietly pops mid fight. The closer to breaking, the harder and the more often it shakes, and each
+piece runs on its own clock so a row of them does not judder in lockstep. Only the icon moves; the
+number beside it stays put and stays readable. A repair or a swap arms the warning again.
 
 Both widgets sit bare on the screen by default. `hud.background` puts a soft panel behind them,
 `hud.gearLayout` switches the column back to a row, and every corner is a `hud.*Anchor` away.
@@ -96,7 +98,7 @@ Both widgets sit bare on the screen by default. `hud.background` puts a soft pan
 
 1. [Fabric Loader](https://fabricmc.net/use/installer/) 0.19.3 or newer, for Minecraft 1.21.11.
 2. [Fabric API](https://modrinth.com/mod/fabric-api) for 1.21.11 into `mods/`.
-3. **[dist/old-sword-blocking-1.3.1.jar](dist/old-sword-blocking-1.3.1.jar)** into `mods/`
+3. **[dist/old-sword-blocking-1.4.0.jar](dist/old-sword-blocking-1.4.0.jar)** into `mods/`
    (use the *Download raw file* button on GitHub).
 
 Java 21 or newer, same as 1.21.11 itself.
@@ -168,6 +170,7 @@ leaves a streak.
 | `includeOffHand` | `true` | |
 | `warnBelowPercent` | `15` | At or below this, a piece gets the exclamation mark |
 | `warnInChat` | `true` | The one off chat line naming the piece |
+| `shakeWhenLow` | `true` | Shake a nearly broken piece, in bursts, harder the closer it gets |
 
 ## How it works
 

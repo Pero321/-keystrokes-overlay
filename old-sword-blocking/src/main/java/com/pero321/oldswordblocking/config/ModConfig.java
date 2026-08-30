@@ -136,6 +136,12 @@ public class ModConfig {
         public int warnBelowPercent = 15;
         /** A one off chat line naming the piece the first time it drops that low. */
         public boolean warnInChat = true;
+
+        /**
+         * Shake a piece that is nearly gone, in short bursts, so it catches the eye even when the
+         * exclamation mark does not. The closer to breaking, the harder and the more often.
+         */
+        public boolean shakeWhenLow = true;
     }
 
     /** Clamp anything a hand edited file may have broken. */

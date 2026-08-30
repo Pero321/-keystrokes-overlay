@@ -37,6 +37,8 @@ public class GearHud implements HudElement {
     private static final int BAR_GAP = 1;
     private static final int BAR_HEIGHT = 2;
     private static final int BAR_BACKGROUND = 0xFF141414;
+    /** How long one shake burst lasts, in ticks. */
+    private static final float SHAKE_TICKS = 9.0F;
 
     /** Whether we have already spoken up about the item currently in each slot. */
     private final Map<EquipmentSlot, Boolean> warned = new EnumMap<>(EquipmentSlot.class);
@@ -157,7 +159,7 @@ public class GearHud implements HudElement {
                 // other way round on the left, so the column always reads towards the screen.
                 int iconX = anchor.isRightAligned() ? left + width - ICON : left;
                 int labelX = anchor.isRightAligned() ? left : left + ICON + GAP;
-                drawPiece(context, client, stack, iconX, y, config);
+                drawPiece(context, client, stack, iconX, y, i, config);
                 if (labelWidth > 0) {
                     String text = label(stack, config);
                     int x = anchor.isRightAligned() ? labelX + labelWidth - client.textRenderer.getWidth(text) : labelX;
@@ -167,7 +169,7 @@ public class GearHud implements HudElement {
             } else {
                 int cell = Math.max(ICON, labelWidth) + GAP;
                 int x = left + i * cell;
-                drawPiece(context, client, stack, x + (Math.max(ICON, labelWidth) - ICON) / 2, top, config);
+                drawPiece(context, client, stack, x + (Math.max(ICON, labelWidth) - ICON) / 2, top, i, config);
                 if (labelWidth > 0) {
                     String text = label(stack, config);
                     int labelX = x + (Math.max(ICON, labelWidth) - client.textRenderer.getWidth(text)) / 2;
@@ -179,11 +181,31 @@ public class GearHud implements HudElement {
     }
 
     private void drawPiece(DrawContext context, MinecraftClient client, ItemStack stack,
-                           int x, int top, ModConfig.HudConfig config) {
+                           int x, int top, int index, ModConfig.HudConfig config) {
         int percent = percentLeft(stack);
         boolean low = percent <= config.warnBelowPercent;
 
-        context.drawItem(stack, x, top);
+        // A piece about to go shakes in bursts. The icon moves, the number beside it does not, so
+        // the movement catches the eye without making the figure hard to read.
+        int shakeX = 0;
+        int shakeY = 0;
+        if (low && config.shakeWhenLow) {
+            float time = client.player.age + client.getRenderTickCounter().getTickProgress(false);
+            // Each piece runs on its own clock, so a row of them does not judder in lockstep.
+            time += index * 7.0F;
+            float urgency = MathHelper.clamp(
+                    1.0F - (float) percent / Math.max(1, config.warnBelowPercent), 0.0F, 1.0F);
+            float period = 50.0F - 30.0F * urgency;
+            float phase = time % period;
+            if (phase < SHAKE_TICKS) {
+                float envelope = 1.0F - phase / SHAKE_TICKS;
+                float amplitude = (1.0F + urgency) * envelope;
+                shakeX = Math.round(MathHelper.sin(time * 2.3F) * amplitude);
+                shakeY = Math.round(MathHelper.sin(time * 3.7F) * amplitude * 0.7F);
+            }
+        }
+
+        context.drawItem(stack, x + shakeX, top + shakeY);
 
         if (config.showBar) {
             int barY = top + ICON + BAR_GAP;
@@ -200,7 +222,7 @@ public class GearHud implements HudElement {
             float pulse = 0.5F + 0.5F * MathHelper.sin(
                     (client.player.age + client.getRenderTickCounter().getTickProgress(false)) * 0.3F);
             int alpha = MathHelper.clamp(90 + (int) (pulse * 165.0F), 0, 255);
-            context.drawTextWithShadow(client.textRenderer, "!", x + ICON - 3, top,
+            context.drawTextWithShadow(client.textRenderer, "!", x + ICON - 3 + shakeX, top + shakeY,
                     (alpha << 24) | (HudTheme.BAD & 0x00FFFFFF));
         }
     }

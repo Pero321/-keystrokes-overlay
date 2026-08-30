@@ -1,49 +1,37 @@
 # Old Sword Blocking
 
-Hold right click with a sword and the sword goes up, the way it did before 1.9.
+A small client side visual mod for **Minecraft 1.21.11**, **Fabric**.
 
-Minecraft **1.21.11**, **Fabric**, **client side only**.
+It started as one thing — bringing back the pre-1.9 sword block — and has grown a few more
+cosmetics that live in the same place. Everything here is **visual only and client side**: no
+packets are added or changed, the server is never told anything, no gameplay value moves, and
+nobody else sees any of it. Only the person using it needs it installed.
 
-<img src="docs/pose-normal.png" alt="Sword held normally" width="380">
-<img src="docs/pose-blocking.png" alt="Sword raised in the old block stance" width="380">
+<img src="docs/pose-normal.png" alt="Sword held normally, with the HUD" width="410">
+<img src="docs/pose-blocking.png" alt="Sword raised in the old block stance" width="410">
 
-<img src="docs/pose-third-person.png" alt="The block arm pose in third person" width="380">
+<img src="docs/sword-trail.png" alt="The streak following a swing" width="410">
+<img src="docs/pose-third-person.png" alt="The block arm pose in third person" width="410">
 
-*Right click held, third shot is F5. All three are straight out of the automated client test below.*
+All four shots come straight out of the automated client test described at the bottom.
 
-## What it actually is
+## What it does
 
-This is the 1.8 block **stance**, and nothing else. Mojang removed sword blocking in 1.9 and
-replaced it with shields; what they never removed is the pose itself — the renderer still knows how
-to draw an item held in the old block position, swords just stopped ever asking for it. This mod
-asks for it again.
+### The 1.8 sword block
 
-Be clear about the limits, because this matters if you play PvP:
+Hold right click with a sword and the sword goes up, the way it did before 1.9. Your own body
+raises the arm in F5 too.
 
-- It is **visual**. You take exactly the same damage as before. There is no 50% reduction, no
-  knockback change, no hit cancelling.
-- It runs **entirely on your client**. No packets are added or changed, the server is never told
-  anything, and nobody else sees the pose. Only you need the mod; it works on vanilla servers,
-  on Paper, on realms, on anything.
-- Because it changes no gameplay and sends nothing, it is not a combat advantage. It is nostalgia.
+The pose is not invented. Vanilla still carries it: an item whose `UseAction` is `BLOCK` and which
+is not a shield gets exactly that transform in `HeldItemRenderer` — the modern descendant of 1.8's
+`ItemRenderer#doBlockTransformations`. Swords simply never reach that branch any more, because
+since 1.9 right clicking a sword does nothing at all. So the mod takes the branch for them.
 
-If you want blocking that really reduces damage, that needs a server side mod and every player has
-to install it — a different project.
+Be clear about the limit, because it matters in PvP: you take **exactly the same damage**. There is
+no 50% reduction, no knockback change, no hit cancelling. Real blocking needs a server side mod
+that every player installs — a different project.
 
-## Install
-
-1. [Fabric Loader](https://fabricmc.net/use/installer/) 0.19.3 or newer, for Minecraft 1.21.11.
-2. [Fabric API](https://modrinth.com/mod/fabric-api) for 1.21.11 into `mods/`.
-3. **[dist/old-sword-blocking-1.0.0.jar](dist/old-sword-blocking-1.0.0.jar)** into `mods/`
-   (use the *Download raw file* button on GitHub).
-
-Java 21 or newer, same as 1.21.11 itself.
-
-## Using it
-
-Hold right click while a sword is in your main hand. That is the whole thing.
-
-The pose is deliberately suppressed when right click means something else, so it never lies to you:
+The pose is suppressed whenever right click means something else, so it never lies to you:
 
 | Situation | Pose |
 |---|---|
@@ -53,10 +41,41 @@ The pose is deliberately suppressed when right click means something else, so it
 | Placing a block from the off hand at a block you are looking at | hidden |
 | Spectator | hidden |
 
-Optional extras:
+### Swing trail
+
+The blade drags a glowing streak behind it as you swing. Each rendered frame the hilt and tip of
+the blade are recorded, and the streak is the ribbon stitched between those frames, fading out at
+the tail.
+
+The default streak follows a vanilla sword's blade exactly, because the two ends are placed where
+the `item/handheld` first person display transform actually puts them. Colour, opacity, length and
+both endpoints are all in the config, so a resource pack with unusual sword models can be dialled
+in by hand.
+
+### FPS and ping
+
+Two lines in a corner. Hidden automatically while the F3 screen is up, since that already says both.
+
+### Gear durability, with a warning
+
+A strip of your armour and held tools, each with a coloured bar and the durability left. Anything
+that drops into the danger zone gets a pulsing red exclamation mark over it and, **once**, a line
+in chat naming the piece — so a helmet never quietly pops mid fight. A repair or a swap arms the
+warning again.
+
+## Install
+
+1. [Fabric Loader](https://fabricmc.net/use/installer/) 0.19.3 or newer, for Minecraft 1.21.11.
+2. [Fabric API](https://modrinth.com/mod/fabric-api) for 1.21.11 into `mods/`.
+3. **[dist/old-sword-blocking-1.1.0.jar](dist/old-sword-blocking-1.1.0.jar)** into `mods/`
+   (use the *Download raw file* button on GitHub).
+
+Java 21 or newer, same as 1.21.11 itself.
+
+## Controls
 
 - **Keybind** — *Options → Controls → Gameplay → Toggle sword blocking*. Unbound by default so it
-  cannot collide with a key you already use.
+  cannot collide with a key you already use. It toggles the block pose, not the HUD.
 - **Commands** — `/oldswordblock status`, `/oldswordblock toggle`, `/oldswordblock reload`.
   These are client commands: they never reach the server.
 
@@ -65,9 +84,11 @@ Optional extras:
 `config/old-sword-blocking.json`, written on first launch. `/oldswordblock reload` re-reads it
 without restarting the game.
 
+### Block pose
+
 | Key | Default | What it does |
 |---|---|---|
-| `enabled` | `true` | Master switch |
+| `enabled` | `true` | Master switch for the whole mod |
 | `firstPerson` | `true` | The pose on your own hand |
 | `thirdPerson` | `true` | Your own body in F5 raises the arm too |
 | `allowSwords` | `true` | Everything in the `minecraft:swords` tag, modded swords included |
@@ -80,21 +101,49 @@ without restarting the game.
 | `transitionTicks` | `2` | Ticks to ease in and out. `0` snaps instantly, like 1.8 |
 | `offsetX/Y/Z`, `rotationX/Y/Z`, `scale` | 1.8 values | Pose tuning, see below |
 
-The pose defaults are not invented. They are Minecraft's own numbers for a non-shield item with
-`UseAction.BLOCK`, which is the modern engine's direct descendant of 1.8's
-`ItemRenderer#doBlockTransformations`. `offsetX`, `rotationY` and `rotationZ` are mirrored
-automatically if you play left handed.
+Those pose defaults are Minecraft's own numbers for a non-shield item with `UseAction.BLOCK`.
+`offsetX`, `rotationY` and `rotationZ` are mirrored automatically if you play left handed.
+
+### `trail`
+
+| Key | Default | What it does |
+|---|---|---|
+| `enabled` | `true` | |
+| `samples` | `16` | How many rendered frames the streak spans |
+| `color` | `#8AE9FF` | |
+| `opacity` | `0.85` | Opacity at the blade end; the tail always fades to nothing |
+| `nearX/Y/Z`, `farX/Y/Z` | blade ends | Where the streak sits, in hand space. Mirrored for left handers |
+
+The streak uses the same item rules as the block pose, so whatever you can block with is what
+leaves a streak.
+
+### `hud`
+
+| Key | Default | What it does |
+|---|---|---|
+| `showFps`, `showPing` | `true` | |
+| `infoAnchor` | `TOP_LEFT` | `TOP_LEFT`, `TOP_RIGHT`, `BOTTOM_LEFT` or `BOTTOM_RIGHT` |
+| `infoOffsetX/Y` | `4` | Pixels inwards from that corner |
+| `showGear` | `true` | The armour and tool strip |
+| `gearAnchor` | `BOTTOM_LEFT` | |
+| `gearOffsetX/Y` | `4` | |
+| `onlyDamagedGear` | `false` | Hide pieces still at full durability |
+| `includeOffHand` | `true` | |
+| `warnBelowPercent` | `15` | At or below this, a piece gets the exclamation mark |
+| `warnInChat` | `true` | The one off chat line naming the piece |
 
 ## How it works
 
-Two mixins, both client only:
+Two mixins and two HUD elements, all client only:
 
-- `HeldItemRendererMixin` — at the head of `renderFirstPersonItem`, when the mod says you are
-  blocking, it applies vanilla's own equip offset and swing, then the old block transform, then
-  hands the stack straight back to vanilla's item renderer. Nothing about how the item is drawn is
-  reimplemented.
+- `HeldItemRendererMixin` — at the head of `renderFirstPersonItem`: feeds the blade's position to
+  the trail, then, when the mod says you are blocking, applies vanilla's own equip offset and
+  swing, then the old block transform, and hands the stack straight back to vanilla's item
+  renderer. Nothing about how the item is drawn is reimplemented.
 - `PlayerEntityRendererMixin` — turns your own `ArmPose.ITEM` into `ArmPose.BLOCK` in third person,
   and only ever for the local player, so other people's models are untouched.
+- `InfoHud` and `GearHud` — registered through Fabric's `HudElementRegistry`, drawing after the
+  vanilla HUD.
 
 The "am I blocking" decision lives in `BlockingState` and reads exactly one thing from the game:
 whether the use key is held. It writes nothing back.
@@ -114,9 +163,10 @@ There is also a real client test:
 ./gradlew runGametestClient
 ```
 
-It boots an actual game, creates a creative world, puts a diamond sword in the hand, holds the use
-key, and asserts that the mod enters the block state and leaves it again — including that an empty
-hand never poses. Screenshots of each stage land in `run/screenshots/`.
+It boots an actual game, creates a creative world, hands the player a battered set of armour and a
+sword, holds the use key, swings, and asserts that the mod enters and leaves the block state and
+that a swing actually produces trail geometry — including that an empty hand never poses.
+Screenshots of each stage land in `run/screenshots/`; the ones in `docs/` came from a run of it.
 
 Built and verified against Minecraft 1.21.11, Yarn 1.21.11+build.6, Loader 0.19.3,
 Fabric API 0.141.6+1.21.11, Loom 1.17.20, Gradle 9.5.
@@ -126,6 +176,9 @@ Fabric API 0.141.6+1.21.11, Loom 1.17.20, Gradle 9.5.
 Anything else that mixes into `HeldItemRenderer#renderFirstPersonItem` at head and cancels
 (some animation and "old animations" mods do) can conflict — whichever cancels first wins. If your
 sword pose stops appearing after adding such a mod, that is the cause.
+
+The mod id stays `oldswordblocking` even though it now does more than blocking, so existing
+configs keep working.
 
 ## Licence
 

@@ -55,11 +55,72 @@ public class ModConfig {
     public float rotationZ = 78.05F;
     public float scale = 1.0F;
 
+    /** The glowing streak that follows the blade through a swing. */
+    public TrailConfig trail = new TrailConfig();
+
+    /** FPS, ping, and the gear durability strip. */
+    public HudConfig hud = new HudConfig();
+
+    public static class TrailConfig {
+        public boolean enabled = true;
+
+        /** How many rendered frames the streak spans. More = longer tail. */
+        public int samples = 16;
+
+        /** Colour of the streak, 0xRRGGBB. */
+        public String color = "#8AE9FF";
+
+        /** Opacity at the blade end, 0 to 1. The tail always fades to nothing. */
+        public float opacity = 0.85F;
+
+        /**
+         * The two ends of the streak, in hand space: `near` is the hilt, `far` is the tip.
+         * The defaults are where a vanilla sword's blade actually sits once the
+         * `item/handheld` first person display transform has been applied, so the ribbon lies
+         * along the blade. Tune them for a resource pack with unusual sword models.
+         */
+        public float nearX = 0.07F;
+        public float nearY = -0.30F;
+        public float nearZ = -0.12F;
+        public float farX = 0.07F;
+        public float farY = 0.80F;
+        public float farZ = 0.28F;
+    }
+
+    public static class HudConfig {
+        public boolean showFps = true;
+        public boolean showPing = true;
+        /** TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT or BOTTOM_RIGHT. */
+        public String infoAnchor = "TOP_LEFT";
+        /** Distance inwards from that corner, in pixels. */
+        public int infoOffsetX = 4;
+        public int infoOffsetY = 4;
+
+        /** Armour and held tools with a durability bar under each. */
+        public boolean showGear = true;
+        public String gearAnchor = "BOTTOM_LEFT";
+        public int gearOffsetX = 4;
+        public int gearOffsetY = 4;
+        /** Hide pieces that are still at full durability. */
+        public boolean onlyDamagedGear = false;
+        public boolean includeOffHand = true;
+
+        /** At or below this much durability left, the piece gets a warning mark. */
+        public int warnBelowPercent = 15;
+        /** A one off chat line naming the piece the first time it drops that low. */
+        public boolean warnInChat = true;
+    }
+
     /** Clamp anything a hand edited file may have broken. */
     public void sanitise() {
         if (transitionTicks < 0) transitionTicks = 0;
         if (transitionTicks > 40) transitionTicks = 40;
         if (scale <= 0.0F) scale = 1.0F;
         if (extraItems == null) extraItems = new ArrayList<>();
+        if (trail == null) trail = new TrailConfig();
+        if (hud == null) hud = new HudConfig();
+        trail.samples = Math.clamp(trail.samples, 2, 64);
+        trail.opacity = Math.clamp(trail.opacity, 0.0F, 1.0F);
+        hud.warnBelowPercent = Math.clamp(hud.warnBelowPercent, 1, 99);
     }
 }

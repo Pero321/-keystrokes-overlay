@@ -3,6 +3,7 @@ package com.pero321.oldswordblocking.mixin;
 import com.pero321.oldswordblocking.client.BlockingState;
 import com.pero321.oldswordblocking.config.ConfigManager;
 import com.pero321.oldswordblocking.config.ModConfig;
+import com.pero321.oldswordblocking.trail.SwordTrail;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
@@ -17,6 +18,7 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -52,10 +54,16 @@ public abstract class HeldItemRendererMixin {
                                                   MatrixStack matrices, OrderedRenderCommandQueue queue, int light,
                                                   CallbackInfo ci) {
         ModConfig config = ConfigManager.get();
+        boolean localMainHand = hand == BlockingState.BLOCKING_HAND
+                && player == MinecraftClient.getInstance().player;
+        if (localMainHand) {
+            oldswordblocking$updateTrail(player, swingProgress, item, equipProgress, matrices, queue);
+        }
+
         if (!config.enabled || !config.firstPerson) {
             return;
         }
-        if (hand != BlockingState.BLOCKING_HAND || player != MinecraftClient.getInstance().player) {
+        if (!localMainHand) {
             return;
         }
         if (item.isEmpty() || !BlockingState.isBlockingItem(item)) {
@@ -94,5 +102,36 @@ public abstract class HeldItemRendererMixin {
 
         matrices.pop();
         ci.cancel();
+    }
+
+    /**
+     * Feeds the blade's position to {@link SwordTrail} once per rendered frame. The sample is taken
+     * from vanilla's own equip and swing transforms on a pushed copy of the stack, so the streak
+     * tracks the blade exactly and the real render is left untouched.
+     */
+    @Unique
+    private void oldswordblocking$updateTrail(AbstractClientPlayerEntity player, float swingProgress,
+                                              ItemStack item, float equipProgress, MatrixStack matrices,
+                                              OrderedRenderCommandQueue queue) {
+        ModConfig config = ConfigManager.get();
+        if (!config.enabled || !config.trail.enabled || item.isEmpty() || !BlockingState.isBlockingItem(item)) {
+            SwordTrail.clear();
+            return;
+        }
+
+        if (swingProgress > 0.0F) {
+            Arm arm = player.getMainArm();
+            int side = arm == Arm.RIGHT ? 1 : -1;
+            // A scratch stack rooted at identity, so the sample comes out relative to the hand
+            // stack rather than in whatever space that stack happens to sit in this frame.
+            MatrixStack delta = new MatrixStack();
+            this.applyEquipOffset(delta, arm, equipProgress);
+            this.swingArm(swingProgress, delta, side, arm);
+            SwordTrail.sample(delta.peek().getPositionMatrix(), side, config.trail);
+        } else {
+            SwordTrail.decay();
+        }
+
+        SwordTrail.submit(queue, matrices, config.trail);
     }
 }

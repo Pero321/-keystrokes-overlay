@@ -2,5 +2,6 @@
   "key.oldswordblocking.toggle": "Блок мечем: увімк./вимк.",
   "text.oldswordblocking.enabled": "Блок мечем: увімкнено",
   "text.oldswordblocking.disabled": "Блок мечем: вимкнено",
-  "text.oldswordblocking.reloaded": "Конфіг блоку мечем перезавантажено"
+  "text.oldswordblocking.reloaded": "Конфіг блоку мечем перезавантажено",
+  "text.oldswordblocking.gear_warning": "Обережно — %s залишилось %s%%"
 }

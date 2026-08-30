@@ -8,8 +8,13 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import com.pero321.oldswordblocking.hud.GearHud;
+import com.pero321.oldswordblocking.hud.InfoHud;
+import com.pero321.oldswordblocking.trail.SwordTrail;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
@@ -17,6 +22,7 @@ import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.lit
 public class OldSwordBlockingClient implements ClientModInitializer {
 
     private static KeyBinding toggleKey;
+    private static final GearHud GEAR_HUD = new GearHud();
 
     @Override
     public void onInitializeClient() {
@@ -42,7 +48,14 @@ public class OldSwordBlockingClient implements ClientModInitializer {
                 }
             }
             BlockingState.tick(client);
+            GEAR_HUD.tick(client);
+            if (client.player == null) {
+                SwordTrail.clear();
+            }
         });
+
+        HudElementRegistry.addLast(Identifier.of(OldSwordBlocking.MOD_ID, "info"), new InfoHud());
+        HudElementRegistry.addLast(Identifier.of(OldSwordBlocking.MOD_ID, "gear"), GEAR_HUD);
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> dispatcher.register(buildCommand()));
 

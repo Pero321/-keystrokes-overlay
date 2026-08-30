@@ -81,9 +81,9 @@ already says both, and while any screen is open.
 
 ### Gear durability, with a warning
 
-A column down the right edge, under the fps line: the durability **actually left** on each piece of
-armour and each held tool, next to its icon, coloured by how much of it there is. Points left, not
-a percentage — that is the number you act on.
+A column in the bottom right corner: the durability **actually left** on each piece of armour and
+each held tool, next to its icon, coloured by how much of it there is. Points left, not a
+percentage — that is the number you act on.
 
 Anything that drops into the danger zone gets a pulsing red badge in the corner of its icon and,
 **once**, a line in chat naming the piece — so a helmet never quietly pops mid fight. A repair or a
@@ -96,7 +96,7 @@ Both widgets sit bare on the screen by default. `hud.background` puts a soft pan
 
 1. [Fabric Loader](https://fabricmc.net/use/installer/) 0.19.3 or newer, for Minecraft 1.21.11.
 2. [Fabric API](https://modrinth.com/mod/fabric-api) for 1.21.11 into `mods/`.
-3. **[dist/old-sword-blocking-1.3.0.jar](dist/old-sword-blocking-1.3.0.jar)** into `mods/`
+3. **[dist/old-sword-blocking-1.3.1.jar](dist/old-sword-blocking-1.3.1.jar)** into `mods/`
    (use the *Download raw file* button on GitHub).
 
 Java 21 or newer, same as 1.21.11 itself.
@@ -154,12 +154,12 @@ leaves a streak.
 |---|---|---|
 | `background` | `false` | A soft panel behind each widget |
 | `showFps`, `showPing` | `true` | |
-| `infoAnchor` | `TOP_RIGHT` | `TOP_LEFT`, `TOP_RIGHT`, `BOTTOM_LEFT` or `BOTTOM_RIGHT` |
+| `infoAnchor` | `TOP_LEFT` | `TOP_LEFT`, `TOP_RIGHT`, `BOTTOM_LEFT` or `BOTTOM_RIGHT` |
 | `infoOffsetX/Y` | `4` | Pixels inwards from that corner |
 | `showGear` | `true` | The armour and tool column |
-| `gearAnchor` | `TOP_RIGHT` | |
+| `gearAnchor` | `BOTTOM_RIGHT` | |
 | `gearOffsetX` | `4` | |
-| `gearOffsetY` | `18` | Clear of the fps line, so the two stack into one column |
+| `gearOffsetY` | `4` | |
 | `gearLayout` | `VERTICAL` | `VERTICAL` down the side, or `HORIZONTAL` in a row |
 | `onlyDamagedGear` | `false` | Hide pieces still at full durability |
 | `showDurabilityNumbers` | `true` | The durability left, as a number, beside each icon |

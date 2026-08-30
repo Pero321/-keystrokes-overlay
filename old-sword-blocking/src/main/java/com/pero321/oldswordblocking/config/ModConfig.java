@@ -106,17 +106,16 @@ public class ModConfig {
         public boolean showFps = true;
         public boolean showPing = true;
         /** TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT or BOTTOM_RIGHT. */
-        public String infoAnchor = "TOP_RIGHT";
+        public String infoAnchor = "TOP_LEFT";
         /** Distance inwards from that corner, in pixels. */
         public int infoOffsetX = 4;
         public int infoOffsetY = 4;
 
         /** Armour and held tools with a durability bar under each. */
         public boolean showGear = true;
-        public String gearAnchor = "TOP_RIGHT";
+        public String gearAnchor = "BOTTOM_RIGHT";
         public int gearOffsetX = 4;
-        /** Clear of the fps line by default, so the two stack into one column. */
-        public int gearOffsetY = 18;
+        public int gearOffsetY = 4;
 
         /** VERTICAL stacks the pieces down the side; HORIZONTAL lays them out in a row. */
         public String gearLayout = "VERTICAL";

@@ -7,6 +7,7 @@ import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import org.joml.Matrix4f;
@@ -68,28 +69,42 @@ public final class SwordTrail {
         return SAMPLES.size() < 2;
     }
 
-    public static void submit(OrderedRenderCommandQueue queue, MatrixStack handSpace, ModConfig.TrailConfig config) {
+    public static void submit(OrderedRenderCommandQueue queue, MatrixStack handSpace, ItemStack stack,
+                              ModConfig.TrailConfig config) {
         if (isEmpty()) {
             return;
         }
         List<Segment> segments = new ArrayList<>(SAMPLES);
-        int rgb = parseColor(config.color);
+        int rgb = TrailPalette.colorFor(stack, config);
         int red = (rgb >> 16) & 0xFF;
         int green = (rgb >> 8) & 0xFF;
         int blue = rgb & 0xFF;
         float peak = MathHelper.clamp(config.opacity, 0.0F, 1.0F);
 
+        int count = segments.size();
         queue.submitCustom(handSpace, LAYER, (entry, consumer) -> {
-            for (int i = 0; i < segments.size() - 1; i++) {
-                Segment from = segments.get(i);
-                Segment to = segments.get(i + 1);
-                int alphaFrom = alphaAt(i, segments.size(), peak);
-                int alphaTo = alphaAt(i + 1, segments.size(), peak);
+            for (int i = 0; i < count - 1; i++) {
+                Vector3f nearFrom = taperedNear(segments.get(i), i, count);
+                Vector3f nearTo = taperedNear(segments.get(i + 1), i + 1, count);
+                Vector3f farFrom = segments.get(i).far();
+                Vector3f farTo = segments.get(i + 1).far();
+                int alphaFrom = alphaAt(i, count, peak);
+                int alphaTo = alphaAt(i + 1, count, peak);
                 // Both windings, so the ribbon is visible from either side of the swing.
-                quad(consumer, entry, from.near(), from.far(), to.far(), to.near(), red, green, blue, alphaFrom, alphaTo);
-                quad(consumer, entry, to.near(), to.far(), from.far(), from.near(), red, green, blue, alphaTo, alphaFrom);
+                quad(consumer, entry, nearFrom, farFrom, farTo, nearTo, red, green, blue, alphaFrom, alphaTo);
+                quad(consumer, entry, nearTo, farTo, farFrom, nearFrom, red, green, blue, alphaTo, alphaFrom);
             }
         });
+    }
+
+    /**
+     * Pulls the hilt end of an older sample toward the tip, so the ribbon narrows into its tail
+     * instead of ending in a blunt rectangle.
+     */
+    private static Vector3f taperedNear(Segment segment, int index, int count) {
+        float age = count <= 1 ? 1.0F : (float) index / (count - 1);
+        float width = 0.25F + 0.75F * age;
+        return new Vector3f(segment.far()).lerp(segment.near(), width);
     }
 
     private static void quad(VertexConsumer consumer, MatrixStack.Entry entry,
@@ -123,14 +138,4 @@ public final class SwordTrail {
         }
     }
 
-    private static int parseColor(String value) {
-        if (value != null) {
-            try {
-                return Integer.parseInt(value.startsWith("#") ? value.substring(1) : value, 16) & 0xFFFFFF;
-            } catch (NumberFormatException ignored) {
-                // fall through to the default
-            }
-        }
-        return 0x8AE9FF;
-    }
 }

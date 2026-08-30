@@ -9,17 +9,14 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.render.RenderTickCounter;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * Two lines of the numbers you actually keep glancing at: frame rate and round trip time to the
- * server. Both are read straight from the client; nothing is measured or sent by this mod.
+ * One compact line: frame rate and round trip time, each number coloured by how healthy it is,
+ * units dimmed so the eye lands on the digits. Both are read straight from the client; nothing is
+ * measured or sent by this mod.
  */
 public class InfoHud implements HudElement {
 
-    private static final int LINE_HEIGHT = 10;
-    private static final int SHADOW_TEXT = 0xFFFFFFFF;
+    private static final String SEPARATOR = " · ";
 
     @Override
     public void render(DrawContext context, RenderTickCounter tickCounter) {
@@ -29,40 +26,72 @@ public class InfoHud implements HudElement {
         if (!ConfigManager.get().enabled || client.player == null || client.options.hudHidden) {
             return;
         }
-        if (client.getDebugHud().shouldShowDebugHud()) {
-            // The F3 screen already says all of this, and says it bigger.
+        // Behind an open screen the numbers are just clutter, and the F3 screen says all of this
+        // already, bigger.
+        if (client.currentScreen != null || client.getDebugHud().shouldShowDebugHud()) {
             return;
         }
-
-        List<String> lines = new ArrayList<>(2);
-        if (config.showFps) {
-            lines.add(client.getCurrentFps() + " fps");
-        }
-        if (config.showPing) {
-            lines.add(currentPing(client) + " ms");
-        }
-        if (lines.isEmpty()) {
+        if (!config.showFps && !config.showPing) {
             return;
         }
 
         TextRenderer font = client.textRenderer;
-        HudAnchor anchor = HudAnchor.parse(config.infoAnchor);
+        int fps = client.getCurrentFps();
+        int ping = currentPing(client);
 
         int width = 0;
-        for (String line : lines) {
-            width = Math.max(width, font.getWidth(line));
+        if (config.showFps) {
+            width += font.getWidth(String.valueOf(fps)) + font.getWidth(" fps");
         }
-        int left = anchor.x(context, width, config.infoOffsetX);
-        int top = anchor.y(context, lines.size() * LINE_HEIGHT, config.infoOffsetY);
+        if (config.showPing) {
+            if (config.showFps) {
+                width += font.getWidth(SEPARATOR);
+            }
+            width += font.getWidth(String.valueOf(ping)) + font.getWidth(" ms");
+        }
 
-        for (int i = 0; i < lines.size(); i++) {
-            String line = lines.get(i);
-            int x = anchor.isRightAligned() ? left + width - font.getWidth(line) : left;
-            context.drawTextWithShadow(font, line, x, top + i * LINE_HEIGHT, SHADOW_TEXT);
+        HudAnchor anchor = HudAnchor.parse(config.infoAnchor);
+        int left = anchor.x(context, width, config.infoOffsetX + HudTheme.PADDING);
+        int top = anchor.y(context, font.fontHeight, config.infoOffsetY + HudTheme.PADDING);
+
+        if (config.background) {
+            HudTheme.panel(context, left, top, width, font.fontHeight);
+        }
+
+        int x = left;
+        if (config.showFps) {
+            x = draw(context, font, String.valueOf(fps), x, top, fpsColor(fps));
+            x = draw(context, font, " fps", x, top, HudTheme.LABEL);
+        }
+        if (config.showPing) {
+            if (config.showFps) {
+                x = draw(context, font, SEPARATOR, x, top, HudTheme.LABEL);
+            }
+            x = draw(context, font, String.valueOf(ping), x, top, pingColor(ping));
+            draw(context, font, " ms", x, top, HudTheme.LABEL);
         }
     }
 
-    /** -1 while the player list has not arrived yet, which happens for a moment after joining. */
+    private static int draw(DrawContext context, TextRenderer font, String text, int x, int y, int color) {
+        context.drawTextWithShadow(font, text, x, y, color);
+        return x + font.getWidth(text);
+    }
+
+    private static int fpsColor(int fps) {
+        if (fps >= 50) {
+            return HudTheme.GOOD;
+        }
+        return fps >= 25 ? HudTheme.FAIR : HudTheme.BAD;
+    }
+
+    private static int pingColor(int ping) {
+        if (ping <= 60) {
+            return HudTheme.GOOD;
+        }
+        return ping <= 150 ? HudTheme.FAIR : HudTheme.BAD;
+    }
+
+    /** 0 while the player list has not arrived yet, which happens for a moment after joining. */
     private static int currentPing(MinecraftClient client) {
         if (client.getNetworkHandler() == null || client.player == null) {
             return 0;

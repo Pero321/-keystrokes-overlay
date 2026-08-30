@@ -61,19 +61,24 @@ public class SwordBlockGameTest implements FabricClientGameTest {
             assertState(context, false, "after the use key was released");
 
             // Swinging: the blade should be dragging a streak behind it.
-            // A swing lasts six ticks, so look at it while it is still going and the streak has
-            // had a couple of frames to build up.
-            context.getInput().holdKey(options -> options.attackKey);
-            context.waitTicks(2);
-            boolean trailing = context.computeOnClient(client -> !SwordTrail.isEmpty());
-            if (!trailing) {
-                throw new AssertionError("Swinging a sword left no trail samples behind");
-            }
-            context.takeScreenshot("04-sword-trail");
-            context.waitTicks(1);
-            context.takeScreenshot("05-sword-trail-later");
-            context.getInput().releaseKey(options -> options.attackKey);
-            context.waitTicks(20);
+            swingAndShoot(context, "04-trail-diamond", true);
+
+            // Each material gets its own streak colour, so check a second and a third.
+            run(context, "item replace entity @s weapon.mainhand with minecraft:golden_sword[minecraft:damage=8]");
+            context.waitTicks(10);
+            swingAndShoot(context, "05-trail-golden", false);
+
+            run(context, "item replace entity @s weapon.mainhand with minecraft:wooden_sword[minecraft:damage=40]");
+            context.waitTicks(10);
+            swingAndShoot(context, "06-trail-wooden", false);
+
+            // With a screen open the HUD must draw nothing at all: every item drawn in a frame
+            // takes a slot in a size capped GPU atlas, and a full creative tab can fill it alone.
+            context.getInput().pressKey(options -> options.inventoryKey);
+            context.waitTicks(10);
+            context.takeScreenshot("07-inventory-open");
+            context.runOnClient(client -> client.setScreen(null));
+            context.waitTicks(10);
 
             // An empty hand must never pose, however hard you hold right click.
             context.runOnClient(client -> client.player.getInventory().setSelectedSlot(1));
@@ -82,6 +87,18 @@ public class SwordBlockGameTest implements FabricClientGameTest {
             assertState(context, false, "while the use key was held with an empty hand");
             context.getInput().releaseKey(options -> options.useKey);
         }
+    }
+
+    /** Swings once and captures the streak two ticks in, while the swing is still running. */
+    private static void swingAndShoot(ClientGameTestContext context, String name, boolean assertTrail) {
+        context.getInput().holdKey(options -> options.attackKey);
+        context.waitTicks(2);
+        if (assertTrail && context.computeOnClient(client -> SwordTrail.isEmpty())) {
+            throw new AssertionError("Swinging a sword left no trail samples behind");
+        }
+        context.takeScreenshot(name);
+        context.getInput().releaseKey(options -> options.attackKey);
+        context.waitTicks(20);
     }
 
     private static void run(ClientGameTestContext context, String command) {

@@ -1,7 +1,9 @@
 package com.pero321.oldswordblocking.config;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Every value here is written to {@code config/old-sword-blocking.json} and can be edited by hand.
@@ -67,8 +69,18 @@ public class ModConfig {
         /** How many rendered frames the streak spans. More = longer tail. */
         public int samples = 16;
 
-        /** Colour of the streak, 0xRRGGBB. */
+        /**
+         * Fallback colour, used for anything the material table below does not recognise.
+         */
         public String color = "#8AE9FF";
+
+        /** Give each sword material its own streak colour: wood dull, diamond cyan, and so on. */
+        public boolean colorPerMaterial = true;
+
+        /**
+         * Per item overrides, e.g. {"somemod:katana": "#FF4D6D"}. Beats the material table.
+         */
+        public Map<String, String> colorsByItem = new HashMap<>();
 
         /** Opacity at the blade end, 0 to 1. The tail always fades to nothing. */
         public float opacity = 0.85F;
@@ -88,6 +100,9 @@ public class ModConfig {
     }
 
     public static class HudConfig {
+        /** The soft panel behind each widget. Turn it off for bare text. */
+        public boolean background = true;
+
         public boolean showFps = true;
         public boolean showPing = true;
         /** TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT or BOTTOM_RIGHT. */
@@ -103,6 +118,9 @@ public class ModConfig {
         public int gearOffsetY = 4;
         /** Hide pieces that are still at full durability. */
         public boolean onlyDamagedGear = false;
+
+        /** Add a percentage under each bar. Off by default: the bars already say it, smaller. */
+        public boolean showPercent = false;
         public boolean includeOffHand = true;
 
         /** At or below this much durability left, the piece gets a warning mark. */
@@ -119,6 +137,7 @@ public class ModConfig {
         if (extraItems == null) extraItems = new ArrayList<>();
         if (trail == null) trail = new TrailConfig();
         if (hud == null) hud = new HudConfig();
+        if (trail.colorsByItem == null) trail.colorsByItem = new HashMap<>();
         trail.samples = Math.clamp(trail.samples, 2, 64);
         trail.opacity = Math.clamp(trail.opacity, 0.0F, 1.0F);
         hud.warnBelowPercent = Math.clamp(hud.warnBelowPercent, 1, 99);

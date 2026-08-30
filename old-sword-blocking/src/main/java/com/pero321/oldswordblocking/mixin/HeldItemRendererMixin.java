@@ -132,6 +132,6 @@ public abstract class HeldItemRendererMixin {
             SwordTrail.decay();
         }
 
-        SwordTrail.submit(queue, matrices, config.trail);
+        SwordTrail.submit(queue, matrices, item, config.trail);
     }
 }

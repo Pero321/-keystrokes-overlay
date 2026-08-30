@@ -18,9 +18,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A strip of your armour and held tools, each with the durability left under it. Anything that
- * drops into the danger zone gets a red exclamation mark over it and, once, a line in chat naming
- * the piece — so a helmet never quietly pops mid fight.
+ * A compact strip of your armour and held tools: the icon, a durability bar under it, and a
+ * pulsing red badge on anything about to break. Nothing else — the bars carry the reading, so the
+ * strip stays small enough to ignore until it matters.
+ *
+ * <p>A piece that drops into the danger zone also gets one line in chat naming it, so a helmet
+ * never quietly pops mid fight.
  */
 public class GearHud implements HudElement {
 
@@ -30,15 +33,10 @@ public class GearHud implements HudElement {
     };
 
     private static final int ICON = 16;
-    private static final int GAP = 4;
-    private static final int BAR_HEIGHT = 2;
+    private static final int GAP = 2;
     private static final int BAR_GAP = 1;
-    /** Room above the icons for the exclamation mark. */
-    private static final int MARK_HEIGHT = 9;
-
-    private static final int BAR_BACKGROUND = 0xFF000000;
-    private static final int TEXT_COLOR = 0xFFDDDDDD;
-    private static final int WARNING_COLOR = 0xFFFF5555;
+    private static final int BAR_HEIGHT = 2;
+    private static final int BAR_BACKGROUND = 0xFF141414;
 
     /** Whether we have already spoken up about the item currently in each slot. */
     private final Map<EquipmentSlot, Boolean> warned = new EnumMap<>(EquipmentSlot.class);
@@ -64,7 +62,8 @@ public class GearHud implements HudElement {
             ItemStack previous = this.lastSeen.get(slot);
             if (previous == null || !ItemStack.areEqual(previous, stack)) {
                 this.lastSeen.put(slot, stack.copy());
-                if (previous == null || !ItemStack.areItemsEqual(previous, stack) || percentLeft(stack) > config.warnBelowPercent) {
+                if (previous == null || !ItemStack.areItemsEqual(previous, stack)
+                        || percentLeft(stack) > config.warnBelowPercent) {
                     this.warned.put(slot, false);
                 }
             }
@@ -92,6 +91,16 @@ public class GearHud implements HudElement {
                 || client.player == null || client.options.hudHidden) {
             return;
         }
+        /*
+         * Never draw behind an open screen. Beyond being pointless, it matters: since 1.21.9 every
+         * item drawn in a frame takes a slot in a GPU atlas whose size is capped by the device's
+         * maximum texture size. A full creative tab can already fill that atlas on a device with a
+         * small cap, and anything that does not fit renders as a black square. Adding six more
+         * items behind the screen is exactly the wrong moment to spend those slots.
+         */
+        if (client.currentScreen != null) {
+            return;
+        }
 
         List<ItemStack> shown = new ArrayList<>(SLOTS.length);
         for (EquipmentSlot slot : SLOTS) {
@@ -111,59 +120,55 @@ public class GearHud implements HudElement {
             return;
         }
 
-        // Cells are as wide as the widest "100%" style label, so the numbers never touch.
-        int content = ICON;
-        for (ItemStack stack : shown) {
-            content = Math.max(content, client.textRenderer.getWidth(label(stack)));
-        }
-        int cellWidth = content + GAP;
-        int width = shown.size() * cellWidth - GAP;
-        int height = MARK_HEIGHT + ICON + BAR_GAP + BAR_HEIGHT + BAR_GAP + client.textRenderer.fontHeight;
+        int cell = ICON + GAP;
+        int width = shown.size() * cell - GAP;
+        int height = ICON + BAR_GAP + BAR_HEIGHT
+                + (config.showPercent ? BAR_GAP + client.textRenderer.fontHeight : 0);
 
         HudAnchor anchor = HudAnchor.parse(config.gearAnchor);
-        int left = anchor.x(context, width, config.gearOffsetX);
-        int top = anchor.y(context, height, config.gearOffsetY);
+        int left = anchor.x(context, width, config.gearOffsetX + HudTheme.PADDING);
+        int top = anchor.y(context, height, config.gearOffsetY + HudTheme.PADDING);
+
+        if (config.background) {
+            HudTheme.panel(context, left, top, width, height);
+        }
 
         for (int i = 0; i < shown.size(); i++) {
-            drawPiece(context, client, shown.get(i), left + i * cellWidth, content, top, config);
+            drawPiece(context, client, shown.get(i), left + i * cell, top, config);
         }
     }
 
     private void drawPiece(DrawContext context, MinecraftClient client, ItemStack stack,
-                           int cellX, int content, int top, ModConfig.HudConfig config) {
+                           int x, int top, ModConfig.HudConfig config) {
         int percent = percentLeft(stack);
         boolean low = percent <= config.warnBelowPercent;
 
-        int x = cellX + (content - ICON) / 2;
-        int iconY = top + MARK_HEIGHT;
-        context.drawItem(stack, x, iconY);
+        context.drawItem(stack, x, top);
 
-        int barY = iconY + ICON + BAR_GAP;
-        int barColor = durabilityColor(percent);
-        context.fill(x - 1, barY - 1, x + ICON + 1, barY + BAR_HEIGHT + 1, BAR_BACKGROUND);
+        int barY = top + ICON + BAR_GAP;
+        context.fill(x, barY, x + ICON, barY + BAR_HEIGHT, BAR_BACKGROUND);
         int filled = Math.round(ICON * percent / 100.0F);
         if (filled > 0) {
-            context.fill(x, barY, x + filled, barY + BAR_HEIGHT, barColor);
+            context.fill(x, barY, x + filled, barY + BAR_HEIGHT, HudTheme.forPercent(percent));
         }
 
-        String label = label(stack);
-        int labelX = cellX + (content - client.textRenderer.getWidth(label)) / 2;
-        context.drawTextWithShadow(client.textRenderer, label, labelX, barY + BAR_HEIGHT + BAR_GAP + 1,
-                low ? WARNING_COLOR : TEXT_COLOR);
+        if (config.showPercent) {
+            String label = percent + "%";
+            int labelX = x + (ICON - client.textRenderer.getWidth(label)) / 2;
+            context.drawTextWithShadow(client.textRenderer, label, labelX,
+                    barY + BAR_HEIGHT + BAR_GAP, low ? HudTheme.BAD : HudTheme.LABEL);
+        }
 
         if (low) {
-            // A slow pulse, so it reads as a warning rather than as part of the furniture.
-            float pulse = 0.55F + 0.45F * MathHelper.sin((client.player.age + client.getRenderTickCounter()
-                    .getTickProgress(false)) * 0.35F);
-            int alpha = MathHelper.clamp((int) (pulse * 255.0F), 0, 255);
-            int mark = (alpha << 24) | (WARNING_COLOR & 0x00FFFFFF);
-            int markX = cellX + (content - client.textRenderer.getWidth("!")) / 2;
-            context.drawTextWithShadow(client.textRenderer, "!", markX, top, mark);
+            // A badge in the icon's corner: a slow pulse, so it reads as a warning rather than as
+            // part of the furniture, without stealing a whole row of height.
+            float pulse = 0.5F + 0.5F * MathHelper.sin(
+                    (client.player.age + client.getRenderTickCounter().getTickProgress(false)) * 0.3F);
+            int alpha = MathHelper.clamp(90 + (int) (pulse * 165.0F), 0, 255);
+            context.fill(x + ICON - 5, top - 1, x + ICON + 1, top + 6, (alpha / 2 << 24));
+            context.drawTextWithShadow(client.textRenderer, "!", x + ICON - 3, top,
+                    (alpha << 24) | (HudTheme.BAD & 0x00FFFFFF));
         }
-    }
-
-    private static String label(ItemStack stack) {
-        return percentLeft(stack) + "%";
     }
 
     private static boolean isTracked(ItemStack stack) {
@@ -177,11 +182,5 @@ public class GearHud implements HudElement {
         }
         int left = stack.getMaxDamage() - stack.getDamage();
         return MathHelper.clamp(Math.round(left * 100.0F / stack.getMaxDamage()), 0, 100);
-    }
-
-    private static int durabilityColor(int percent) {
-        // Green above half, through amber, to red at the end. Same reading as the vanilla bar.
-        float hue = MathHelper.clamp(percent / 100.0F, 0.0F, 1.0F) / 3.0F;
-        return 0xFF000000 | MathHelper.hsvToArgb(hue, 1.0F, 1.0F, 255) & 0x00FFFFFF;
     }
 }

@@ -90,6 +90,13 @@ public class ModConfig {
         public boolean onlyMine = true;
         public int maxMarkers = 12;
         public int lifetimeSeconds = 240;
+
+        /** A ring on the ground at the exact spot. The one you can always find. */
+        public boolean ring = true;
+        /** Radius of that ring, in blocks. */
+        public float ringRadius = 0.45F;
+        /** The exclamation mark floating above the spot. */
+        public boolean mark = true;
         /** Drop the mark once you are this close; by then you can see the thing itself. */
         public float clearWithinBlocks = 3.0F;
         public float markerScale = 1.0F;
@@ -221,6 +228,7 @@ public class ModConfig {
         projectiles.smoothing = Math.clamp(projectiles.smoothing, 0, 8);
         projectiles.maxMarkers = Math.clamp(projectiles.maxMarkers, 1, 64);
         projectiles.markerScale = Math.clamp(projectiles.markerScale, 0.3F, 4.0F);
+        projectiles.ringRadius = Math.clamp(projectiles.ringRadius, 0.15F, 4.0F);
         trail.opacity = Math.clamp(trail.opacity, 0.0F, 1.0F);
         hud.warnBelowPercent = Math.clamp(hud.warnBelowPercent, 1, 99);
         hud.scale = Math.clamp(hud.scale, 0.5F, 3.0F);

@@ -100,6 +100,12 @@ public class SwordBlockGameTest implements FabricClientGameTest {
             context.waitTicks(50);
             context.takeScreenshot("09-landing-marks");
 
+            // Stand next to the trident and look down at it, where the ground ring is readable.
+            run(context, "tp @s @e[type=minecraft:trident,limit=1]");
+            run(context, "tp @s ~ ~3 ~-6 0 30");
+            context.waitTicks(5);
+            context.takeScreenshot("10-ring-close-up");
+
             // With a screen open the HUD must draw nothing at all: every item drawn in a frame
             // takes a slot in a size capped GPU atlas, and a full creative tab can fill it alone.
             context.getInput().pressKey(options -> options.inventoryKey);

@@ -68,7 +68,7 @@ per-material table, and `swing.weight` and `swing.arc` scale the two halves of t
 ### Trident and arrow streaks, and where they landed
 
 <img src="docs/projectile-trail.png" alt="A thrown trident with its streak" width="410">
-<img src="docs/landing-marks.png" alt="Marks over a landed arrow and trident" width="410">
+<img src="docs/landing-ring.png" alt="A ring on the ground at a landed arrow" width="410">
 
 A trident or an arrow in flight drags the same kind of streak the sword does — cyan for a trident,
 pale for an arrow, and a tipped arrow streaks in its own potion colour. Because a projectile is a
@@ -76,10 +76,16 @@ point rather than a blade, each frame's two edges are made by stepping sideways 
 path, square to the line from the camera, so the ribbon faces you whatever angle the shot crosses
 at.
 
-Where one comes down, it leaves a mark: an exclamation mark above the spot, amber for an arrow and
-cyan for a trident, **drawn through walls** so you can walk to it. The mark grows with distance to
-keep roughly the same size on screen — a fixed size is fine for a nameplate a few blocks away and
-invisible for a shot that went forty.
+Where one comes down, it leaves two things, both **drawn through walls** so you can walk straight
+to them, and both amber for an arrow, cyan for a trident:
+
+- **A ring on the ground**, right on the spot. This is the one you can always find: it sits at
+  ground level where the thing actually is, so it works even when the view above is cluttered.
+- **An exclamation mark** floating above it, which is what carries at distance. It grows the
+  further away it is, to hold roughly the same size on screen — a nameplate scale is fine at five
+  blocks and invisible at forty.
+
+Both breathe slowly rather than sitting flat, and either can be turned off on its own.
 
 A mark is taken away when you get close, when the thing is no longer at that spot — picked up, or
 broken — or when its lifetime runs out. "No longer there" is only concluded within 32 blocks, since
@@ -140,7 +146,7 @@ Both widgets sit bare on the screen by default. `hud.background` puts a soft pan
 
 1. [Fabric Loader](https://fabricmc.net/use/installer/) 0.19.3 or newer, for Minecraft 1.21.11.
 2. [Fabric API](https://modrinth.com/mod/fabric-api) for 1.21.11 into `mods/`.
-3. **[dist/old-sword-blocking-1.6.0.jar](dist/old-sword-blocking-1.6.0.jar)** into `mods/`
+3. **[dist/old-sword-blocking-1.7.0.jar](dist/old-sword-blocking-1.7.0.jar)** into `mods/`
    (use the *Download raw file* button on GitHub).
 
 Java 21 or newer, same as 1.21.11 itself.
@@ -219,6 +225,9 @@ leaves a streak.
 | `onlyMine` | `true` | Only mark projectiles you fired yourself |
 | `maxMarkers` | `12` | Oldest marks drop off past this |
 | `lifetimeSeconds` | `240` | |
+| `ring` | `true` | The ring on the ground at the exact spot |
+| `ringRadius` | `0.45` | In blocks |
+| `mark` | `true` | The exclamation mark floating above it |
 | `clearWithinBlocks` | `3.0` | Drop the mark once you are this close |
 | `markerScale` | `1.0` | |
 

@@ -57,11 +57,30 @@ public class ModConfig {
     public float rotationZ = 78.05F;
     public float scale = 1.0F;
 
+    /** How each blade carries itself through a swing. */
+    public SwingConfig swing = new SwingConfig();
+
     /** The glowing streak that follows the blade through a swing. */
     public TrailConfig trail = new TrailConfig();
 
     /** FPS, ping, and the gear durability strip. */
     public HudConfig hud = new HudConfig();
+
+    public static class SwingConfig {
+        public boolean enabled = true;
+
+        /** Give each material its own weight and arc. Off: one middling swing for everything. */
+        public boolean perMaterial = true;
+
+        /** 0 is vanilla's swing untouched, 1 the full effect. Dial the whole thing back here. */
+        public float strength = 1.0F;
+
+        /** Multiplies how much heavier blades wind up. */
+        public float weight = 1.0F;
+
+        /** Multiplies how far the arm travels. */
+        public float arc = 1.0F;
+    }
 
     public static class TrailConfig {
         public boolean enabled = true;
@@ -102,6 +121,12 @@ public class ModConfig {
     public static class HudConfig {
         /** A soft panel behind each widget. Off by default: bare text sits lighter on the screen. */
         public boolean background = false;
+
+        /** Ring the text in dark rather than dropping one shadow, so it survives any background. */
+        public boolean outlineText = true;
+
+        /** Size of the whole HUD. Worth raising on a phone, lowering on a very large screen. */
+        public float scale = 1.0F;
 
         public boolean showFps = true;
         public boolean showPing = true;
@@ -150,11 +175,16 @@ public class ModConfig {
         if (transitionTicks > 40) transitionTicks = 40;
         if (scale <= 0.0F) scale = 1.0F;
         if (extraItems == null) extraItems = new ArrayList<>();
+        if (swing == null) swing = new SwingConfig();
+        swing.strength = Math.clamp(swing.strength, 0.0F, 1.0F);
+        swing.weight = Math.clamp(swing.weight, 0.0F, 3.0F);
+        swing.arc = Math.clamp(swing.arc, 0.0F, 3.0F);
         if (trail == null) trail = new TrailConfig();
         if (hud == null) hud = new HudConfig();
         if (trail.colorsByItem == null) trail.colorsByItem = new HashMap<>();
         trail.samples = Math.clamp(trail.samples, 2, 64);
         trail.opacity = Math.clamp(trail.opacity, 0.0F, 1.0F);
         hud.warnBelowPercent = Math.clamp(hud.warnBelowPercent, 1, 99);
+        hud.scale = Math.clamp(hud.scale, 0.5F, 3.0F);
     }
 }

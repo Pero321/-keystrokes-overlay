@@ -1,5 +1,6 @@
 package com.pero321.oldswordblocking.hud;
 
+import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 
 /**
@@ -38,6 +39,25 @@ public final class HudTheme {
         context.fill(right - 1, top + 1, right, bottom - 1, PANEL);
         context.fill(left + 1, top, right - 1, top + 1, PANEL_EDGE);
         context.fill(left + 1, bottom - 1, right - 1, bottom, PANEL_EDGE);
+    }
+
+    /**
+     * Text with a dark ring around it rather than one corner shadow. Bare HUD text has to survive
+     * whatever is behind it — bright grass, snow, your own sword — and a single shadow does not
+     * cut it on the light side.
+     */
+    public static void text(DrawContext context, TextRenderer font, String text, int x, int y,
+                            int color, boolean outlined) {
+        if (outlined) {
+            int ring = 0xD0000000;
+            context.drawText(font, text, x - 1, y, ring, false);
+            context.drawText(font, text, x + 1, y, ring, false);
+            context.drawText(font, text, x, y - 1, ring, false);
+            context.drawText(font, text, x, y + 1, ring, false);
+            context.drawText(font, text, x, y, color, false);
+        } else {
+            context.drawTextWithShadow(font, text, x, y, color);
+        }
     }
 
     /** Green when there is plenty, amber in the middle, red when it is nearly gone. */

@@ -18,12 +18,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A compact strip of your armour and held tools: the icon, a durability bar under it, and a
- * pulsing red badge on anything about to break. Nothing else — the bars carry the reading, so the
- * strip stays small enough to ignore until it matters.
+ * A compact column of your armour and held tools: the icon and the durability actually left on it,
+ * coloured by how much of that there is. Points left, not a percentage — that is the number you act
+ * on. Armour and hands are separated by a small gap, so the block reads as two groups at a glance.
  *
- * <p>A piece that drops into the danger zone also gets one line in chat naming it, so a helmet
- * never quietly pops mid fight.
+ * <p>A piece past the warning threshold gets a pulsing badge, shakes in short bursts, and gets one
+ * line in chat naming it, so a helmet never quietly pops mid fight.
  */
 public class GearHud implements HudElement {
 
@@ -34,11 +34,16 @@ public class GearHud implements HudElement {
 
     private static final int ICON = 16;
     private static final int GAP = 2;
+    /** Extra room between the armour group and the held items. */
+    private static final int GROUP_GAP = 5;
     private static final int BAR_GAP = 1;
     private static final int BAR_HEIGHT = 2;
     private static final int BAR_BACKGROUND = 0xFF141414;
     /** How long one shake burst lasts, in ticks. */
     private static final float SHAKE_TICKS = 9.0F;
+
+    private record Piece(ItemStack stack, boolean held) {
+    }
 
     /** Whether we have already spoken up about the item currently in each slot. */
     private final Map<EquipmentSlot, Boolean> warned = new EnumMap<>(EquipmentSlot.class);
@@ -104,19 +109,16 @@ public class GearHud implements HudElement {
             return;
         }
 
-        List<ItemStack> shown = new ArrayList<>(SLOTS.length);
+        List<Piece> shown = new ArrayList<>(SLOTS.length);
         for (EquipmentSlot slot : SLOTS) {
             if (slot == EquipmentSlot.OFFHAND && !config.includeOffHand) {
                 continue;
             }
             ItemStack stack = client.player.getEquippedStack(slot);
-            if (!isTracked(stack)) {
+            if (!isTracked(stack) || (config.onlyDamagedGear && stack.getDamage() == 0)) {
                 continue;
             }
-            if (config.onlyDamagedGear && stack.getDamage() == 0) {
-                continue;
-            }
-            shown.add(stack);
+            shown.add(new Piece(stack, slot == EquipmentSlot.MAINHAND || slot == EquipmentSlot.OFFHAND));
         }
         if (shown.isEmpty()) {
             return;
@@ -127,34 +129,43 @@ public class GearHud implements HudElement {
 
         int labelWidth = 0;
         if (config.showDurabilityNumbers) {
-            for (ItemStack stack : shown) {
-                labelWidth = Math.max(labelWidth, client.textRenderer.getWidth(label(stack, config)));
+            for (Piece piece : shown) {
+                labelWidth = Math.max(labelWidth, client.textRenderer.getWidth(label(piece.stack(), config)));
             }
         }
 
         int rowHeight = ICON + (config.showBar ? BAR_GAP + BAR_HEIGHT : 0);
+        int[] offsets = layout(shown, vertical ? rowHeight : Math.max(ICON, labelWidth), GAP);
+        int span = offsets[offsets.length - 1];
+
         int width;
         int height;
         if (vertical) {
             width = ICON + (labelWidth > 0 ? labelWidth + GAP : 0);
-            height = shown.size() * (rowHeight + GAP) - GAP;
+            height = span;
         } else {
-            int cell = Math.max(ICON, labelWidth) + GAP;
-            width = shown.size() * cell - GAP;
+            width = span;
             height = rowHeight + (labelWidth > 0 ? BAR_GAP + client.textRenderer.fontHeight : 0);
         }
 
-        int left = anchor.x(context, width, config.gearOffsetX + (config.background ? HudTheme.PADDING : 0));
-        int top = anchor.y(context, height, config.gearOffsetY + (config.background ? HudTheme.PADDING : 0));
+        float scale = config.scale;
+        int screenWidth = Math.round(context.getScaledWindowWidth() / scale);
+        int screenHeight = Math.round(context.getScaledWindowHeight() / scale);
+        int pad = config.background ? HudTheme.PADDING : 0;
+        int left = anchor.x(screenWidth, width, config.gearOffsetX + pad);
+        int top = anchor.y(screenHeight, height, config.gearOffsetY + pad);
+
+        context.getMatrices().pushMatrix();
+        context.getMatrices().scale(scale, scale);
 
         if (config.background) {
             HudTheme.panel(context, left, top, width, height);
         }
 
         for (int i = 0; i < shown.size(); i++) {
-            ItemStack stack = shown.get(i);
+            ItemStack stack = shown.get(i).stack();
             if (vertical) {
-                int y = top + i * (rowHeight + GAP);
+                int y = top + offsets[i];
                 // On the right the icons hug the edge and the numbers sit inside them, and the
                 // other way round on the left, so the column always reads towards the screen.
                 int iconX = anchor.isRightAligned() ? left + width - ICON : left;
@@ -163,21 +174,42 @@ public class GearHud implements HudElement {
                 if (labelWidth > 0) {
                     String text = label(stack, config);
                     int x = anchor.isRightAligned() ? labelX + labelWidth - client.textRenderer.getWidth(text) : labelX;
-                    context.drawTextWithShadow(client.textRenderer, text, x,
-                            y + (ICON - client.textRenderer.fontHeight) / 2 + 1, numberColor(stack, config));
+                    HudTheme.text(context, client.textRenderer, text, x,
+                            y + (ICON - client.textRenderer.fontHeight) / 2 + 1,
+                            numberColor(stack, config), config.outlineText);
                 }
             } else {
-                int cell = Math.max(ICON, labelWidth) + GAP;
-                int x = left + i * cell;
-                drawPiece(context, client, stack, x + (Math.max(ICON, labelWidth) - ICON) / 2, top, i, config);
+                int cellWidth = Math.max(ICON, labelWidth);
+                int x = left + offsets[i];
+                drawPiece(context, client, stack, x + (cellWidth - ICON) / 2, top, i, config);
                 if (labelWidth > 0) {
                     String text = label(stack, config);
-                    int labelX = x + (Math.max(ICON, labelWidth) - client.textRenderer.getWidth(text)) / 2;
-                    context.drawTextWithShadow(client.textRenderer, text, labelX,
-                            top + rowHeight + BAR_GAP, numberColor(stack, config));
+                    HudTheme.text(context, client.textRenderer, text,
+                            x + (cellWidth - client.textRenderer.getWidth(text)) / 2,
+                            top + rowHeight + BAR_GAP, numberColor(stack, config), config.outlineText);
                 }
             }
         }
+
+        context.getMatrices().popMatrix();
+    }
+
+    /**
+     * Start offset for each piece plus, in the last slot, the total span. Held items get an extra
+     * gap in front of them so armour and hands read as two groups.
+     */
+    private static int[] layout(List<Piece> pieces, int step, int gap) {
+        int[] offsets = new int[pieces.size() + 1];
+        int cursor = 0;
+        for (int i = 0; i < pieces.size(); i++) {
+            if (i > 0) {
+                cursor += gap + (pieces.get(i).held() && !pieces.get(i - 1).held() ? GROUP_GAP : 0);
+            }
+            offsets[i] = cursor;
+            cursor += step;
+        }
+        offsets[pieces.size()] = cursor;
+        return offsets;
     }
 
     private void drawPiece(DrawContext context, MinecraftClient client, ItemStack stack,
@@ -217,13 +249,11 @@ public class GearHud implements HudElement {
         }
 
         if (low) {
-            // A badge in the icon's corner: a slow pulse, so it reads as a warning rather than as
-            // part of the furniture, without stealing a whole row of height.
             float pulse = 0.5F + 0.5F * MathHelper.sin(
                     (client.player.age + client.getRenderTickCounter().getTickProgress(false)) * 0.3F);
             int alpha = MathHelper.clamp(90 + (int) (pulse * 165.0F), 0, 255);
-            context.drawTextWithShadow(client.textRenderer, "!", x + ICON - 3 + shakeX, top + shakeY,
-                    (alpha << 24) | (HudTheme.BAD & 0x00FFFFFF));
+            HudTheme.text(context, client.textRenderer, "!", x + ICON - 3 + shakeX, top + shakeY,
+                    (alpha << 24) | (HudTheme.BAD & 0x00FFFFFF), config.outlineText);
         }
     }
 

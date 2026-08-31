@@ -43,6 +43,28 @@ The pose is suppressed whenever right click means something else, so it never li
 | Placing a block from the off hand at a block you are looking at | hidden |
 | Spectator | hidden |
 
+### Weighted swing
+
+Every blade now swings like itself. A golden sword flicks out and snaps back; a netherite one winds
+up, falls through a wider arc and settles at the end. Tridents and maces are heavier still.
+
+This is vanilla's own swing re-parameterised, not replaced — the same translation and the same
+three rotations, with three knobs on top: how much the blade has to be hauled around (which warps
+the timing), how far the arm travels, and how much it rocks back as it lands. **The swing still
+lasts exactly as long as vanilla's**, because its length is the attack animation the server drives.
+Only the shape of the motion inside those ticks changes, so nothing about reach or attack speed
+moves.
+
+<img src="docs/swing-arcs.svg" alt="Blade tip paths for each material" width="620">
+
+That is measured, not drawn by hand: `tools/SwingProbe.java` runs the real transform outside the
+game and prints the blade tip's path. Reach grows with weight (golden 1.32 → mace 1.73 blocks), the
+moment the blade is furthest through the swing slides later (golden at 32% of the swing, mace at
+54%), and every profile returns exactly to rest at the end.
+
+`swing.strength` blends the whole thing back toward vanilla, `swing.perMaterial` turns off the
+per-material table, and `swing.weight` and `swing.arc` scale the two halves of the effect.
+
 ### Swing trail
 
 The blade drags a glowing streak behind it as you swing. Each rendered frame the hilt and tip of
@@ -98,7 +120,7 @@ Both widgets sit bare on the screen by default. `hud.background` puts a soft pan
 
 1. [Fabric Loader](https://fabricmc.net/use/installer/) 0.19.3 or newer, for Minecraft 1.21.11.
 2. [Fabric API](https://modrinth.com/mod/fabric-api) for 1.21.11 into `mods/`.
-3. **[dist/old-sword-blocking-1.4.0.jar](dist/old-sword-blocking-1.4.0.jar)** into `mods/`
+3. **[dist/old-sword-blocking-1.5.0.jar](dist/old-sword-blocking-1.5.0.jar)** into `mods/`
    (use the *Download raw file* button on GitHub).
 
 Java 21 or newer, same as 1.21.11 itself.
@@ -150,11 +172,23 @@ Those pose defaults are Minecraft's own numbers for a non-shield item with `UseA
 The streak uses the same item rules as the block pose, so whatever you can block with is what
 leaves a streak.
 
+### `swing`
+
+| Key | Default | What it does |
+|---|---|---|
+| `enabled` | `true` | |
+| `perMaterial` | `true` | Each material its own weight and arc |
+| `strength` | `1.0` | `0` is vanilla's swing untouched, `1` the full effect |
+| `weight` | `1.0` | Multiplies how much heavier blades wind up |
+| `arc` | `1.0` | Multiplies how far the arm travels |
+
 ### `hud`
 
 | Key | Default | What it does |
 |---|---|---|
 | `background` | `false` | A soft panel behind each widget |
+| `outlineText` | `true` | Ring the text in dark rather than dropping one shadow |
+| `scale` | `1.0` | Size of the whole HUD. Worth raising on a phone |
 | `showFps`, `showPing` | `true` | |
 | `infoAnchor` | `TOP_LEFT` | `TOP_LEFT`, `TOP_RIGHT`, `BOTTOM_LEFT` or `BOTTOM_RIGHT` |
 | `infoOffsetX/Y` | `4` | Pixels inwards from that corner |

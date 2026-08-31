@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.gui.screen.world.WorldCreator;
 import net.minecraft.client.option.Perspective;
+import net.minecraft.world.gen.WorldPresets;
 
 /**
  * Drives a real client through every visual the mod adds: the block stance in both perspectives,
@@ -20,10 +21,25 @@ public class SwordBlockGameTest implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext context) {
+        // Software rendering and world generation are fighting over the same few cores here, and
+        // the harness only allows ten seconds for the world to load.
+        context.runOnClient(client -> {
+            client.options.getViewDistance().setValue(3);
+            client.options.getSimulationDistance().setValue(3);
+        });
+
         try (TestSingleplayerContext singleplayer = context.worldBuilder()
                 .adjustSettings(creator -> {
                     creator.setGameMode(WorldCreator.Mode.CREATIVE);
                     creator.setCheatsEnabled(true);
+                    // Superflat: terrain generation is the slowest part of this test by far, and
+                    // none of it is what we are looking at.
+                    creator.getNormalWorldTypes().stream()
+                            .filter(type -> type.preset() != null && type.preset().matchesKey(WorldPresets.FLAT))
+                            .findFirst()
+                            .ifPresent(creator::setWorldType);
+                    System.out.println("[WORLDDEBUG] types=" + creator.getNormalWorldTypes().size()
+                            + " chosen=" + creator.getWorldType().getName().getString());
                 })
                 .create()) {
 
@@ -61,16 +77,17 @@ public class SwordBlockGameTest implements FabricClientGameTest {
             assertState(context, false, "after the use key was released");
 
             // Swinging: the blade should be dragging a streak behind it.
-            swingAndShoot(context, "04-trail-diamond", true);
+            swingAndShoot(context, "04-diamond", true, 3);
 
-            // Each material gets its own streak colour, so check a second and a third.
+            // Every material gets its own streak colour and its own swing, so compare the
+            // heaviest blade against the lightest across the same frames of the animation.
+            run(context, "item replace entity @s weapon.mainhand with minecraft:netherite_sword[minecraft:damage=1000]");
+            context.waitTicks(10);
+            swingAndShoot(context, "05-netherite", false, 3);
+
             run(context, "item replace entity @s weapon.mainhand with minecraft:golden_sword[minecraft:damage=8]");
             context.waitTicks(10);
-            swingAndShoot(context, "05-trail-golden", false);
-
-            run(context, "item replace entity @s weapon.mainhand with minecraft:wooden_sword[minecraft:damage=40]");
-            context.waitTicks(10);
-            swingAndShoot(context, "06-trail-wooden", false);
+            swingAndShoot(context, "06-golden", false, 3);
 
             // With a screen open the HUD must draw nothing at all: every item drawn in a frame
             // takes a slot in a size capped GPU atlas, and a full creative tab can fill it alone.
@@ -89,14 +106,16 @@ public class SwordBlockGameTest implements FabricClientGameTest {
         }
     }
 
-    /** Swings once and captures the streak two ticks in, while the swing is still running. */
-    private static void swingAndShoot(ClientGameTestContext context, String name, boolean assertTrail) {
+    /** Swings once and captures the first few ticks, while the animation is still running. */
+    private static void swingAndShoot(ClientGameTestContext context, String name, boolean assertTrail, int frames) {
         context.getInput().holdKey(options -> options.attackKey);
-        context.waitTicks(2);
-        if (assertTrail && context.computeOnClient(client -> SwordTrail.isEmpty())) {
-            throw new AssertionError("Swinging a sword left no trail samples behind");
+        for (int tick = 1; tick <= frames; tick++) {
+            context.waitTicks(1);
+            if (tick == 2 && assertTrail && context.computeOnClient(client -> SwordTrail.isEmpty())) {
+                throw new AssertionError("Swinging a sword left no trail samples behind");
+            }
+            context.takeScreenshot(name + "-tick-" + tick);
         }
-        context.takeScreenshot(name);
         context.getInput().releaseKey(options -> options.attackKey);
         context.waitTicks(20);
     }

@@ -50,9 +50,16 @@ public class InfoHud implements HudElement {
             width += font.getWidth(String.valueOf(ping)) + font.getWidth(" ms");
         }
 
+        float scale = config.scale;
         HudAnchor anchor = HudAnchor.parse(config.infoAnchor);
-        int left = anchor.x(context, width, config.infoOffsetX + HudTheme.PADDING);
-        int top = anchor.y(context, font.fontHeight, config.infoOffsetY + HudTheme.PADDING);
+        int screenWidth = Math.round(context.getScaledWindowWidth() / scale);
+        int screenHeight = Math.round(context.getScaledWindowHeight() / scale);
+        int pad = config.background ? HudTheme.PADDING : 0;
+        int left = anchor.x(screenWidth, width, config.infoOffsetX + pad);
+        int top = anchor.y(screenHeight, font.fontHeight, config.infoOffsetY + pad);
+
+        context.getMatrices().pushMatrix();
+        context.getMatrices().scale(scale, scale);
 
         if (config.background) {
             HudTheme.panel(context, left, top, width, font.fontHeight);
@@ -60,20 +67,23 @@ public class InfoHud implements HudElement {
 
         int x = left;
         if (config.showFps) {
-            x = draw(context, font, String.valueOf(fps), x, top, fpsColor(fps));
-            x = draw(context, font, " fps", x, top, HudTheme.LABEL);
+            x = draw(context, font, config, String.valueOf(fps), x, top, fpsColor(fps));
+            x = draw(context, font, config, " fps", x, top, HudTheme.LABEL);
         }
         if (config.showPing) {
             if (config.showFps) {
-                x = draw(context, font, SEPARATOR, x, top, HudTheme.LABEL);
+                x = draw(context, font, config, SEPARATOR, x, top, HudTheme.LABEL);
             }
-            x = draw(context, font, String.valueOf(ping), x, top, pingColor(ping));
-            draw(context, font, " ms", x, top, HudTheme.LABEL);
+            x = draw(context, font, config, String.valueOf(ping), x, top, pingColor(ping));
+            draw(context, font, config, " ms", x, top, HudTheme.LABEL);
         }
+
+        context.getMatrices().popMatrix();
     }
 
-    private static int draw(DrawContext context, TextRenderer font, String text, int x, int y, int color) {
-        context.drawTextWithShadow(font, text, x, y, color);
+    private static int draw(DrawContext context, TextRenderer font, ModConfig.HudConfig config,
+                            String text, int x, int y, int color) {
+        HudTheme.text(context, font, text, x, y, color, config.outlineText);
         return x + font.getWidth(text);
     }
 

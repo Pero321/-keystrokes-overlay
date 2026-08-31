@@ -1,7 +1,5 @@
 package com.pero321.oldswordblocking.hud;
 
-import net.minecraft.client.gui.DrawContext;
-
 /**
  * Which corner a HUD block hangs off. Offsets are always measured inwards from that corner, so
  * moving a widget never needs negative numbers in the config.
@@ -32,13 +30,13 @@ public enum HudAnchor {
     }
 
     /** Left edge of a block `width` wide, `offset` pixels in from this corner. */
-    public int x(DrawContext context, int width, int offset) {
-        return this.right ? context.getScaledWindowWidth() - width - offset : offset;
+    public int x(int screenWidth, int width, int offset) {
+        return this.right ? screenWidth - width - offset : offset;
     }
 
     /** Top edge of a block `height` tall, `offset` pixels in from this corner. */
-    public int y(DrawContext context, int height, int offset) {
-        return this.bottom ? context.getScaledWindowHeight() - height - offset : offset;
+    public int y(int screenHeight, int height, int offset) {
+        return this.bottom ? screenHeight - height - offset : offset;
     }
 
     public boolean isRightAligned() {

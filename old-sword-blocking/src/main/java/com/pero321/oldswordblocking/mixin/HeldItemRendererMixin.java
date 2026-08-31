@@ -3,6 +3,8 @@ package com.pero321.oldswordblocking.mixin;
 import com.pero321.oldswordblocking.client.BlockingState;
 import com.pero321.oldswordblocking.config.ConfigManager;
 import com.pero321.oldswordblocking.config.ModConfig;
+import com.pero321.oldswordblocking.swing.SwingAnimations;
+import com.pero321.oldswordblocking.swing.SwingProfile;
 import com.pero321.oldswordblocking.trail.SwordTrail;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
@@ -14,6 +16,7 @@ import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
+import net.minecraft.util.SwingAnimationType;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 import org.spongepowered.asm.mixin.Mixin;
@@ -24,16 +27,16 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Draws the held sword in the pre-1.9 block stance.
+ * Everything this mod does to the item in your hand: the pre-1.9 block stance, the weighted swing,
+ * and the streak that follows the blade.
  *
- * <p>No new maths is invented here. Vanilla still carries the old pose: an item whose
- * {@code UseAction} is {@code BLOCK} and which is not a shield gets exactly the transform below
- * inside {@link HeldItemRenderer} — it is the modern descendant of 1.8's
- * {@code ItemRenderer#doBlockTransformations}. Swords simply never reach that branch any more,
- * because since 1.9 right clicking a sword does nothing at all. So we take the branch for them.
+ * <p>The block pose is not invented. Vanilla still carries it: an item whose {@code UseAction} is
+ * {@code BLOCK} and which is not a shield gets exactly that transform here — the modern descendant
+ * of 1.8's {@code ItemRenderer#doBlockTransformations}. Swords simply never reach that branch any
+ * more, so this takes it for them.
  *
- * <p>We reuse vanilla's own {@code applyEquipOffset} and {@code swingArm} so the hand sits and
- * swings precisely where it normally would, then hand the stack back to vanilla's item renderer.
+ * <p>When it takes over it rebuilds vanilla's own plain path — equip offset, swing, then vanilla's
+ * item renderer — so nothing about how the item is drawn is reimplemented.
  */
 @Mixin(HeldItemRenderer.class)
 public abstract class HeldItemRendererMixin {
@@ -49,51 +52,44 @@ public abstract class HeldItemRendererMixin {
     protected abstract void swingArm(float swingProgress, MatrixStack matrices, int side, Arm arm);
 
     @Inject(method = "renderFirstPersonItem", at = @At("HEAD"), cancellable = true)
-    private void oldswordblocking$renderBlockPose(AbstractClientPlayerEntity player, float tickProgress, float pitch,
-                                                  Hand hand, float swingProgress, ItemStack item, float equipProgress,
-                                                  MatrixStack matrices, OrderedRenderCommandQueue queue, int light,
-                                                  CallbackInfo ci) {
+    private void oldswordblocking$renderHeldItem(AbstractClientPlayerEntity player, float tickProgress, float pitch,
+                                                 Hand hand, float swingProgress, ItemStack item, float equipProgress,
+                                                 MatrixStack matrices, OrderedRenderCommandQueue queue, int light,
+                                                 CallbackInfo ci) {
         ModConfig config = ConfigManager.get();
-        boolean localMainHand = hand == BlockingState.BLOCKING_HAND
-                && player == MinecraftClient.getInstance().player;
-        if (localMainHand) {
-            oldswordblocking$updateTrail(player, swingProgress, item, equipProgress, matrices, queue);
-        }
-
-        if (!config.enabled || !config.firstPerson) {
+        if (hand != BlockingState.BLOCKING_HAND || player != MinecraftClient.getInstance().player) {
             return;
         }
-        if (!localMainHand) {
-            return;
-        }
-        if (item.isEmpty() || !BlockingState.isBlockingItem(item)) {
-            return;
-        }
-
-        float progress = BlockingState.getProgress(tickProgress);
-        if (progress <= 0.0F) {
+        if (!config.enabled || item.isEmpty() || !BlockingState.isBlockingItem(item)) {
+            SwordTrail.clear();
             return;
         }
 
         Arm arm = player.getMainArm();
         int side = arm == Arm.RIGHT ? 1 : -1;
 
-        matrices.push();
-        this.applyEquipOffset(matrices, arm, equipProgress);
+        float blockProgress = config.firstPerson ? BlockingState.getProgress(tickProgress) : 0.0F;
+        SwingProfile profile = oldswordblocking$swingProfile(player, item, swingProgress, config);
 
-        // 1.8 kept swinging while you blocked; vanilla's own BLOCK branch does not. Your call.
-        if (config.allowWhileSwinging) {
-            this.swingArm(swingProgress, matrices, side, arm);
+        oldswordblocking$updateTrail(swingProgress, equipProgress, arm, side, profile, item, matrices, queue, config);
+
+        boolean swinging = swingProgress > 0.0F && (blockProgress <= 0.0F || config.allowWhileSwinging);
+        if (blockProgress <= 0.0F && profile == null) {
+            // Nothing to change about this frame: let vanilla draw it.
+            return;
         }
 
-        // The old block pose, eased in and out by `progress` so it does not snap.
-        matrices.translate(side * config.offsetX * progress, config.offsetY * progress, config.offsetZ * progress);
-        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(config.rotationX * progress));
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(side * config.rotationY * progress));
-        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(side * config.rotationZ * progress));
-        if (config.scale != 1.0F) {
-            float extra = MathHelper.lerp(progress, 1.0F, config.scale);
-            matrices.scale(extra, extra, extra);
+        matrices.push();
+        this.applyEquipOffset(matrices, arm, equipProgress);
+        if (swinging) {
+            if (profile != null) {
+                SwingAnimations.apply(matrices, swingProgress, side, profile);
+            } else {
+                this.swingArm(swingProgress, matrices, side, arm);
+            }
+        }
+        if (blockProgress > 0.0F) {
+            oldswordblocking$applyBlockPose(matrices, side, blockProgress, config);
         }
 
         this.renderItem(player, item,
@@ -104,29 +100,61 @@ public abstract class HeldItemRendererMixin {
         ci.cancel();
     }
 
+    /** The old block pose, eased in and out by {@code progress} so it does not snap. */
+    @Unique
+    private void oldswordblocking$applyBlockPose(MatrixStack matrices, int side, float progress, ModConfig config) {
+        matrices.translate(side * config.offsetX * progress, config.offsetY * progress, config.offsetZ * progress);
+        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(config.rotationX * progress));
+        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(side * config.rotationY * progress));
+        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(side * config.rotationZ * progress));
+        if (config.scale != 1.0F) {
+            float extra = MathHelper.lerp(progress, 1.0F, config.scale);
+            matrices.scale(extra, extra, extra);
+        }
+    }
+
     /**
-     * Feeds the blade's position to {@link SwordTrail} once per rendered frame. The sample is taken
-     * from vanilla's own equip and swing transforms on a pushed copy of the stack, so the streak
-     * tracks the blade exactly and the real render is left untouched.
+     * The weighted swing for this blade, or null when vanilla's should be left alone — the mod is
+     * off, the arm is still, or the item has a use or a swing style this does not own.
      */
     @Unique
-    private void oldswordblocking$updateTrail(AbstractClientPlayerEntity player, float swingProgress,
-                                              ItemStack item, float equipProgress, MatrixStack matrices,
-                                              OrderedRenderCommandQueue queue) {
-        ModConfig config = ConfigManager.get();
-        if (!config.enabled || !config.trail.enabled || item.isEmpty() || !BlockingState.isBlockingItem(item)) {
+    private SwingProfile oldswordblocking$swingProfile(AbstractClientPlayerEntity player, ItemStack item,
+                                                       float swingProgress, ModConfig config) {
+        if (!config.swing.enabled || swingProgress <= 0.0F) {
+            return null;
+        }
+        if (player.isUsingItem() || player.isUsingRiptide()) {
+            return null;
+        }
+        if (item.getSwingAnimation().type() != SwingAnimationType.WHACK) {
+            return null;
+        }
+        return SwingAnimations.profileFor(item, config.swing);
+    }
+
+    /**
+     * Feeds the blade's position to {@link SwordTrail} once per rendered frame, through whichever
+     * swing is actually being drawn, so the streak always tracks the blade.
+     */
+    @Unique
+    private void oldswordblocking$updateTrail(float swingProgress, float equipProgress, Arm arm, int side,
+                                              SwingProfile profile, ItemStack item, MatrixStack matrices,
+                                              OrderedRenderCommandQueue queue, ModConfig config) {
+        if (!config.trail.enabled) {
             SwordTrail.clear();
             return;
         }
 
         if (swingProgress > 0.0F) {
-            Arm arm = player.getMainArm();
-            int side = arm == Arm.RIGHT ? 1 : -1;
             // A scratch stack rooted at identity, so the sample comes out relative to the hand
             // stack rather than in whatever space that stack happens to sit in this frame.
             MatrixStack delta = new MatrixStack();
             this.applyEquipOffset(delta, arm, equipProgress);
-            this.swingArm(swingProgress, delta, side, arm);
+            if (profile != null) {
+                SwingAnimations.apply(delta, swingProgress, side, profile);
+            } else {
+                this.swingArm(swingProgress, delta, side, arm);
+            }
             SwordTrail.sample(delta.peek().getPositionMatrix(), side, config.trail);
         } else {
             SwordTrail.decay();

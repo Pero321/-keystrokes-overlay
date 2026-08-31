@@ -89,6 +89,17 @@ public class SwordBlockGameTest implements FabricClientGameTest {
             context.waitTicks(10);
             swingAndShoot(context, "06-golden", false, 3);
 
+            // Projectiles: a streak in flight, then a mark where the thing came down.
+            run(context, "tp @s ~ ~ ~ -90 0");
+            run(context, "summon minecraft:arrow ~1 ~1.5 ~ {Motion:[0.55,0.16,0.0]}");
+            context.waitTicks(3);
+            context.takeScreenshot("07-arrow-in-flight");
+            run(context, "summon minecraft:trident ~1 ~1.5 ~2 {Motion:[0.5,0.18,0.0]}");
+            context.waitTicks(3);
+            context.takeScreenshot("08-trident-in-flight");
+            context.waitTicks(50);
+            context.takeScreenshot("09-landing-marks");
+
             // With a screen open the HUD must draw nothing at all: every item drawn in a frame
             // takes a slot in a size capped GPU atlas, and a full creative tab can fill it alone.
             context.getInput().pressKey(options -> options.inventoryKey);

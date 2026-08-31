@@ -29,6 +29,9 @@ loom {
             name "Client Game Test"
             source "gametest"
             vmArg "-Dfabric.client.gametest"
+            // Software rendering competes with world generation for the same few cores on CI
+            // sized machines, and the harness only allows ten seconds for a world to load.
+            programArgs "--width", "400", "--height", "300"
         }
     }
 }

@@ -66,6 +66,35 @@ public class ModConfig {
     /** FPS, ping, and the gear durability strip. */
     public HudConfig hud = new HudConfig();
 
+    /** Streaks behind thrown tridents and loosed arrows, and markers where they land. */
+    public ProjectileConfig projectiles = new ProjectileConfig();
+
+    public static class ProjectileConfig {
+        /** The streak behind a projectile in flight. */
+        public boolean trail = true;
+        public boolean trailArrows = true;
+        public boolean trailTridents = true;
+        /** Half width of the streak, in blocks. */
+        public float width = 0.09F;
+        public int samples = 16;
+        public float opacity = 0.75F;
+        public int smoothing = 2;
+        /** Tipped arrows streak in their potion's colour. */
+        public boolean usePotionColor = true;
+
+        /** A mark left where a projectile lands, so it can be found again. */
+        public boolean markers = true;
+        public boolean markArrows = true;
+        public boolean markTridents = true;
+        /** Only mark projectiles you fired yourself. */
+        public boolean onlyMine = true;
+        public int maxMarkers = 12;
+        public int lifetimeSeconds = 240;
+        /** Drop the mark once you are this close; by then you can see the thing itself. */
+        public float clearWithinBlocks = 3.0F;
+        public float markerScale = 1.0F;
+    }
+
     public static class SwingConfig {
         public boolean enabled = true;
 
@@ -103,6 +132,9 @@ public class ModConfig {
 
         /** Opacity at the blade end, 0 to 1. The tail always fades to nothing. */
         public float opacity = 0.85F;
+
+        /** Extra points inserted between frames, so a fast swing curves instead of faceting. */
+        public int smoothing = 3;
 
         /**
          * The two ends of the streak, in hand space: `near` is the hilt, `far` is the tip.
@@ -183,6 +215,12 @@ public class ModConfig {
         if (hud == null) hud = new HudConfig();
         if (trail.colorsByItem == null) trail.colorsByItem = new HashMap<>();
         trail.samples = Math.clamp(trail.samples, 2, 64);
+        trail.smoothing = Math.clamp(trail.smoothing, 0, 8);
+        if (projectiles == null) projectiles = new ProjectileConfig();
+        projectiles.samples = Math.clamp(projectiles.samples, 2, 64);
+        projectiles.smoothing = Math.clamp(projectiles.smoothing, 0, 8);
+        projectiles.maxMarkers = Math.clamp(projectiles.maxMarkers, 1, 64);
+        projectiles.markerScale = Math.clamp(projectiles.markerScale, 0.3F, 4.0F);
         trail.opacity = Math.clamp(trail.opacity, 0.0F, 1.0F);
         hud.warnBelowPercent = Math.clamp(hud.warnBelowPercent, 1, 99);
         hud.scale = Math.clamp(hud.scale, 0.5F, 3.0F);

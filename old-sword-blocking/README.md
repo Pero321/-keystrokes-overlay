@@ -65,6 +65,26 @@ moment the blade is furthest through the swing slides later (golden at 32% of th
 `swing.strength` blends the whole thing back toward vanilla, `swing.perMaterial` turns off the
 per-material table, and `swing.weight` and `swing.arc` scale the two halves of the effect.
 
+### Trident and arrow streaks, and where they landed
+
+<img src="docs/projectile-trail.png" alt="A thrown trident with its streak" width="410">
+<img src="docs/landing-marks.png" alt="Marks over a landed arrow and trident" width="410">
+
+A trident or an arrow in flight drags the same kind of streak the sword does — cyan for a trident,
+pale for an arrow, and a tipped arrow streaks in its own potion colour. Because a projectile is a
+point rather than a blade, each frame's two edges are made by stepping sideways from the flight
+path, square to the line from the camera, so the ribbon faces you whatever angle the shot crosses
+at.
+
+Where one comes down, it leaves a mark: an exclamation mark above the spot, amber for an arrow and
+cyan for a trident, **drawn through walls** so you can walk to it. The mark grows with distance to
+keep roughly the same size on screen — a fixed size is fine for a nameplate a few blocks away and
+invisible for a shot that went forty.
+
+A mark is taken away when you get close, when the thing is no longer at that spot — picked up, or
+broken — or when its lifetime runs out. "No longer there" is only concluded within 32 blocks, since
+past that the projectile is not loaded on your client and its absence means nothing.
+
 ### Swing trail
 
 The blade drags a glowing streak behind it as you swing. Each rendered frame the hilt and tip of
@@ -120,7 +140,7 @@ Both widgets sit bare on the screen by default. `hud.background` puts a soft pan
 
 1. [Fabric Loader](https://fabricmc.net/use/installer/) 0.19.3 or newer, for Minecraft 1.21.11.
 2. [Fabric API](https://modrinth.com/mod/fabric-api) for 1.21.11 into `mods/`.
-3. **[dist/old-sword-blocking-1.5.0.jar](dist/old-sword-blocking-1.5.0.jar)** into `mods/`
+3. **[dist/old-sword-blocking-1.6.0.jar](dist/old-sword-blocking-1.6.0.jar)** into `mods/`
    (use the *Download raw file* button on GitHub).
 
 Java 21 or newer, same as 1.21.11 itself.
@@ -167,6 +187,7 @@ Those pose defaults are Minecraft's own numbers for a non-shield item with `UseA
 | `colorPerMaterial` | `true` | Give each sword material its own streak colour |
 | `colorsByItem` | `{}` | Per item overrides, e.g. `{"somemod:katana": "#FF4D6D"}` |
 | `opacity` | `0.85` | Opacity at the blade end; the tail always fades to nothing |
+| `smoothing` | `3` | Points inserted between frames, so a fast swing curves instead of faceting |
 | `nearX/Y/Z`, `farX/Y/Z` | blade ends | Where the streak sits, in hand space. Mirrored for left handers |
 
 The streak uses the same item rules as the block pose, so whatever you can block with is what
@@ -181,6 +202,25 @@ leaves a streak.
 | `strength` | `1.0` | `0` is vanilla's swing untouched, `1` the full effect |
 | `weight` | `1.0` | Multiplies how much heavier blades wind up |
 | `arc` | `1.0` | Multiplies how far the arm travels |
+
+### `projectiles`
+
+| Key | Default | What it does |
+|---|---|---|
+| `trail` | `true` | The streak behind a projectile in flight |
+| `trailArrows`, `trailTridents` | `true` | |
+| `width` | `0.09` | Half width of the streak, in blocks |
+| `samples` | `16` | How many frames the streak spans |
+| `opacity` | `0.75` | |
+| `smoothing` | `2` | |
+| `usePotionColor` | `true` | Tipped arrows streak in their potion's colour |
+| `markers` | `true` | The mark left where a projectile lands |
+| `markArrows`, `markTridents` | `true` | |
+| `onlyMine` | `true` | Only mark projectiles you fired yourself |
+| `maxMarkers` | `12` | Oldest marks drop off past this |
+| `lifetimeSeconds` | `240` | |
+| `clearWithinBlocks` | `3.0` | Drop the mark once you are this close |
+| `markerScale` | `1.0` | |
 
 ### `hud`
 
@@ -218,6 +258,9 @@ Two mixins and two HUD elements, all client only:
   and only ever for the local player, so other people's models are untouched.
 - `InfoHud` and `GearHud` — registered through Fabric's `HudElementRegistry`, drawing after the
   vanilla HUD.
+- `ProjectileTrails` and `LandingMarkers` — drawn in the world pass through
+  `WorldRenderEvents.AFTER_ENTITIES`, and the marks are geometry rather than a font glyph so they
+  stay crisp at any distance.
 
 The "am I blocking" decision lives in `BlockingState` and reads exactly one thing from the game:
 whether the use key is held. It writes nothing back.

@@ -11,7 +11,10 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import com.pero321.oldswordblocking.hud.GearHud;
 import com.pero321.oldswordblocking.hud.InfoHud;
+import com.pero321.oldswordblocking.projectile.LandingMarkers;
+import com.pero321.oldswordblocking.projectile.ProjectileTrails;
 import com.pero321.oldswordblocking.trail.SwordTrail;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -49,9 +52,16 @@ public class OldSwordBlockingClient implements ClientModInitializer {
             }
             BlockingState.tick(client);
             GEAR_HUD.tick(client);
+            LandingMarkers.tick(client);
             if (client.player == null) {
                 SwordTrail.clear();
+                ProjectileTrails.clear();
             }
+        });
+
+        WorldRenderEvents.AFTER_ENTITIES.register(context -> {
+            ProjectileTrails.render(context);
+            LandingMarkers.render(context);
         });
 
         HudElementRegistry.addLast(Identifier.of(OldSwordBlocking.MOD_ID, "info"), new InfoHud());

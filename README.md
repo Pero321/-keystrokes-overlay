@@ -126,6 +126,12 @@ tools\UiShot.cs         dev tool: colour picker to PNG
   4–20 ms for identical code and were noise, not a regression.)
 - Contrast: at 0 % tiles nearly vanish over bright scenes, at 55 % they stay readable everywhere.
 
+## Also in this repo
+
+[`web/europe-quiz/`](web/europe-quiz/) — a standalone offline web page for drilling the
+political map of Europe: 47 countries grouped into Northern, Western, Central, Eastern and
+Southern Europe, in Ukrainian. Open `index.html` in a browser; nothing to install.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). The bundled JetBrains Mono typeface is under the SIL Open Font License 1.1

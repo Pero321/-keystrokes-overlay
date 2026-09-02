@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Політична карта Європи — тренажер</title>
+<meta name="description" content="Інтерактивний тренажер політичної карти Європи: 47 країн за регіонами — Північна, Західна, Центральна, Східна, Південна.">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🗺️</text></svg>">
+</head>
+<body>
+
+<header class="bar">
+  <h1>Карта Європи <span>тренажер</span></h1>
+
+  <nav class="modes" id="modes" aria-label="Режим">
+    <button class="mode is-on" data-mode="find">Знайди на карті</button>
+    <button class="mode" data-mode="name">Назви країну</button>
+    <button class="mode" data-mode="region">Вгадай регіон</button>
+    <button class="mode" data-mode="study">Вивчення</button>
+  </nav>
+
+  <div class="stats" id="stats">
+    <div class="stat"><b id="stScore">0</b><span>очки</span></div>
+    <div class="stat"><b id="stLeft">0</b><span>лишилось</span></div>
+    <div class="stat"><b id="stStreak">0</b><span>серія</span></div>
+    <div class="stat"><b id="stAcc">—</b><span>точність</span></div>
+  </div>
+</header>
+
+<section class="filters">
+  <span class="flabel">Регіони:</span>
+  <div class="chips" id="chips"></div>
+  <button class="ghost" id="btnAll">Усі</button>
+  <button class="ghost" id="btnRestart" title="Перезапустити раунд (R)">↻ Заново</button>
+</section>
+
+<main>
+  <div class="mapwrap" id="mapwrap">
+    <svg id="map" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Політична карта Європи">
+      <g id="viewport">
+        <path id="backdrop" class="backdrop"></path>
+        <g id="countries"></g>
+        <g id="markers"></g>
+        <g id="labels"></g>
+      </g>
+    </svg>
+
+    <div class="zoom">
+      <button id="zIn"  title="Наблизити">+</button>
+      <button id="zOut" title="Віддалити">−</button>
+      <button id="zFit" title="Показати всю Європу">⤢</button>
+    </div>
+
+    <div class="tip" id="tip" hidden></div>
+    <div class="toast" id="toast" hidden></div>
+  </div>
+
+  <aside class="side">
+    <div class="prompt" id="prompt">
+      <div class="pkicker" id="pKicker">Знайди на карті</div>
+      <div class="ptitle" id="pTitle">—</div>
+      <div class="phint" id="pHint"></div>
+    </div>
+
+    <div class="choices" id="choices"></div>
+
+    <div class="listbox">
+      <div class="lhead">
+        <span>Країни в раунді</span>
+        <b id="lCount">0</b>
+      </div>
+      <ul class="clist" id="clist"></ul>
+    </div>
+
+    <div class="legend" id="legend"></div>
+  </aside>
+</main>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="card">
+    <h2 id="shTitle">Раунд завершено</h2>
+    <p class="shsub" id="shSub"></p>
+    <div class="shgrid" id="shGrid"></div>
+    <div class="shmiss" id="shMiss"></div>
+    <div class="shbtns">
+      <button class="primary" id="shAgain">Ще раз</button>
+      <button class="ghost" id="shClose">Закрити</button>
+    </div>
+  </div>
+</div>
+
+<script src="map-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
